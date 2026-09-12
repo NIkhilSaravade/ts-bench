@@ -1,0 +1,20 @@
+{
+  "instance_id": "colinhacks__zod-1234",
+  "repo": "colinhacks/zod",
+  "base_commit": "8f2c1e9a4b7d3f0e6c5a2b1d9e8f7a6c5b4d3e2f",
+  "problem_statement": "z.string().min(1) does not reject an empty string when the input is undefined-coerced to \"\" by a prior transform.",
+  "gold_patch": "diff --git a/src/types.ts b/src/types.ts\n--- a/src/types.ts\n+++ b/src/types.ts\n@@ -120,6 +120,9 @@ export class ZodString extends ZodType {\n   _parse(input) {\n+    if (input.data === \"\" && this._def.checks.some(c => c.kind === \"min\")) {\n+      return INVALID;\n+    }\n     return super._parse(input);\n   }\n",
+  "test_patch": "diff --git a/src/__tests__/string.test.ts b/src/__tests__/string.test.ts\n--- a/src/__tests__/string.test.ts\n+++ b/src/__tests__/string.test.ts\n@@ -40,3 +40,8 @@ test(\"string min\", () => {\n   expect(() => schema.parse(\"\")).toThrow();\n });\n+\n+test(\"string min rejects empty after coercion\", () => {\n+  const schema = z.string().min(1);\n+  expect(() => schema.parse(\"\")).toThrow();\n+});\n",
+  "fail_to_pass": [
+    "src/__tests__/string.test.ts > string min rejects empty after coercion"
+  ],
+  "pass_to_pass": [
+    "src/__tests__/string.test.ts > string min"
+  ],
+  "environment": {
+    "node_version": "20.11.0",
+    "package_manager": "pnpm",
+    "install_cmd": "pnpm install --frozen-lockfile",
+    "test_cmd": "pnpm vitest run --reporter=json"
+  }
+}

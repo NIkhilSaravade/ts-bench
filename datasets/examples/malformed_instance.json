@@ -1,0 +1,20 @@
+{
+  "instance_id": "colinhacks__zod-9999",
+  "repo": "colinhacks/zod",
+  "base_commit": "not-a-real-sha",
+  "problem_statement": "Placeholder issue text.",
+  "gold_patch": "diff --git a/src/types.ts b/src/types.ts\n(...)",
+  "test_patch": "diff --git a/src/__tests__/string.test.ts b/src/__tests__/string.test.ts\n(...)",
+  "fail_to_pass": [
+    "src/__tests__/string.test.ts > string min rejects empty after coercion"
+  ],
+  "pass_to_pass": [
+    "src/__tests__/string.test.ts > string min"
+  ],
+  "environment": {
+    "node_version": "20.11.0",
+    "package_manager": "bun",
+    "install_cmd": "bun install",
+    "test_cmd": "bun test"
+  }
+}
