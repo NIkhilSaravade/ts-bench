@@ -1,0 +1,200 @@
+# harness/ts_adapter.py
+import json
+from pathlib import Path
+
+from harness.language_adapter import Environment, LanguageAdapter
+
+_RUNNER_DEPS = {"vitest": "vitest", "jest": "jest", "mocha": "mocha"}
+_RUNNER_CONFIGS = {
+    "vitest": ["vitest.config.ts", "vitest.config.js", "vitest.config.mts"],
+    "jest": ["jest.config.js", "jest.config.ts", "jest.config.cjs"],
+    "mocha": [".mocharc.js", ".mocharc.json", ".mocharc.yml"],
+}
+_INSTALL_CMDS = {
+    "npm": ["npm", "ci"],
+    "pnpm": ["pnpm", "install", "--frozen-lockfile"],
+    "yarn": ["yarn", "install", "--frozen-lockfile"],
+}
+_KNOWN_MANAGERS = {"npm", "pnpm", "yarn"}
+
+
+class TypeScriptAdapter(LanguageAdapter):
+    def __init__(self, repo_path: Path, package_path: Path | None = None):
+        self.repo_path = repo_path
+        # Defaults to repo_path for single-package repos -- zero behavior
+        # change for zod/class-validator. Set explicitly for a monorepo
+        # to scope test runner detection and test execution to one package,
+        # while package manager / node version stay resolved from the root.
+        self.package_path = package_path or repo_path
+
+    def detect_environment(self, repo_path: Path) -> Environment:
+        manager, _pinned = self._detect_package_manager(self.repo_path)
+        node_version = self._detect_node_version(self.repo_path)
+        runner = self._detect_test_runner_with_fallback(self.package_path, self.repo_path)
+        return Environment(
+            language_version=node_version,
+            package_manager=manager,
+            test_runner=runner,
+            install_cmd=_INSTALL_CMDS[manager],
+            test_cmd_template=[],
+        )
+
+    def install(self, sandbox, env: Environment) -> None:
+        self._sanitize_package_manager_field(self.repo_path)
+        self._sanitize_lifecycle_scripts(self.repo_path)
+
+        result = sandbox.run(env.install_cmd, cwd=self.repo_path)
+        if result.returncode != 0 and "ERR_PNPM_IGNORED_BUILDS" in result.stderr:
+            sandbox.run(["pnpm", "approve-builds", "--all"], cwd=self.repo_path)
+            result = sandbox.run(env.install_cmd, cwd=self.repo_path)
+
+        if result.returncode != 0:
+            raise RuntimeError(f"install failed:\n{result.stderr}")
+
+    def run_tests(self, sandbox, env: Environment, test_ids: list[str] | None = None) -> str:
+        cmd = self._build_test_cmd(env.test_runner, test_ids)
+        result = sandbox.run(cmd, cwd=self.package_path, timeout=300)
+
+        output_filename = "jest-results.json" if env.test_runner == "jest" else "vitest-results.json"
+        output_file = self.package_path / output_filename
+        if not output_file.exists():
+            raise RuntimeError(
+                f"{env.test_runner} produced no output file (exit {result.returncode}).\n"
+                f"stderr:\n{result.stderr}"
+            )
+        return output_file.read_text()
+
+    def parse_results(self, raw_output: str, runner: str) -> dict[str, bool]:
+        data = json.loads(raw_output)
+
+        if runner in ("jest", "vitest"):
+            out: dict[str, bool] = {}
+            for file_result in data["testResults"]:
+                rel_path = str(Path(file_result["name"]).relative_to(self.repo_path))
+                for a in file_result["assertionResults"]:
+                    name = " > ".join([*a["ancestorTitles"], a["title"]])
+                    out[f"{rel_path}::{name}"] = a["status"] == "passed"
+            return out
+
+        if runner == "mocha":
+            out = {}
+            for t in data.get("passes", []):
+                rel_path = str(Path(t["file"]).relative_to(self.repo_path))
+                out[f"{rel_path}::{t['fullTitle']}"] = True
+            for t in data.get("failures", []):
+                rel_path = str(Path(t["file"]).relative_to(self.repo_path))
+                out[f"{rel_path}::{t['fullTitle']}"] = False
+            return out
+
+        raise ValueError(f"Unknown runner: {runner}")
+
+    # --- private helpers ---
+
+    def _detect_package_manager(self, repo_path: Path) -> tuple[str, str | None]:
+        pkg_json = repo_path / "package.json"
+        if pkg_json.exists():
+            data = json.loads(pkg_json.read_text())
+            pm_field = data.get("packageManager")
+            if pm_field:
+                name, _, version = pm_field.partition("@")
+                if name in _KNOWN_MANAGERS:
+                    return name, version or None
+
+        candidates = [
+            ("pnpm", repo_path / "pnpm-lock.yaml"),
+            ("yarn", repo_path / "yarn.lock"),
+            ("npm", repo_path / "package-lock.json"),
+        ]
+        existing = [(name, p) for name, p in candidates if p.exists()]
+        if not existing:
+            raise ValueError(f"No lockfile or recognized packageManager field found in {repo_path}")
+        if len(existing) > 1:
+            existing.sort(key=lambda t: t[1].stat().st_mtime, reverse=True)
+        return existing[0][0], None
+
+    def _sanitize_package_manager_field(self, repo_path: Path) -> None:
+        pkg_json = repo_path / "package.json"
+        if not pkg_json.exists():
+            return
+        data = json.loads(pkg_json.read_text())
+        pm_field = data.get("packageManager", "")
+        name = pm_field.partition("@")[0]
+        if pm_field and name not in _KNOWN_MANAGERS:
+            data.pop("packageManager")
+            pkg_json.write_text(json.dumps(data, indent=2))
+
+    def _sanitize_lifecycle_scripts(self, repo_path: Path) -> None:
+        pkg_json = repo_path / "package.json"
+        if not pkg_json.exists():
+            return
+        data = json.loads(pkg_json.read_text())
+        scripts = data.get("scripts", {})
+        changed = False
+        for hook in ("prepare", "preinstall", "postinstall"):
+            if hook in scripts:
+                del scripts[hook]
+                changed = True
+        if changed:
+            pkg_json.write_text(json.dumps(data, indent=2))
+
+    def _detect_node_version(self, repo_path: Path, default: str = "20.11.1") -> str:
+        for fname in (".nvmrc", ".node-version"):
+            f = repo_path / fname
+            if f.exists():
+                v = f.read_text().strip().lstrip("v")
+                if v:
+                    return v
+        return default
+
+    def _detect_test_runner(self, repo_path: Path) -> str:
+        pkg_json = repo_path / "package.json"
+        deps = {}
+        if pkg_json.exists():
+            data = json.loads(pkg_json.read_text())
+            deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+
+        found = [name for name, dep_key in _RUNNER_DEPS.items() if dep_key in deps]
+        if len(found) == 1:
+            return found[0]
+
+        for name, configs in _RUNNER_CONFIGS.items():
+            if any((repo_path / c).exists() for c in configs):
+                return name
+
+        if len(found) > 1:
+            raise ValueError(f"Ambiguous test runner in {repo_path}: {found} all present")
+        raise ValueError(f"No recognizable test runner in {repo_path}")
+
+    def _detect_test_runner_with_fallback(self, package_path: Path, repo_path: Path) -> str:
+        """
+        Try the package's own directory first (a package can use a different
+        runner than its siblings). If that fails and this is genuinely a
+        monorepo (package_path != repo_path), fall back to the repo root --
+        some monorepos share one runner config across all packages.
+        Single-package repos (package_path == repo_path) get the original
+        behavior unchanged: no fallback, the real error propagates.
+        """
+        try:
+            return self._detect_test_runner(package_path)
+        except ValueError:
+            if package_path == repo_path:
+                raise
+            return self._detect_test_runner(repo_path)
+
+    def _build_test_cmd(self, runner: str, test_ids: list[str] | None) -> list[str]:
+        if runner == "vitest":
+            cmd = ["npx", "vitest", "run", "--reporter=json", "--outputFile=vitest-results.json"]
+            if test_ids:
+                cmd += ["-t", "|".join(test_ids)]
+            return cmd
+        if runner == "jest":
+            cmd = ["npx", "jest", "--json", "--outputFile=jest-results.json"]
+            if test_ids:
+                cmd += test_ids
+            return cmd
+        if runner == "mocha":
+            cmd = ["npx", "mocha", "--reporter", "json"]
+            if test_ids:
+                cmd += ["--grep", "|".join(test_ids)]
+            return cmd
+        raise ValueError(f"Unknown runner: {runner}")
