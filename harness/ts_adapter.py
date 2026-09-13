@@ -51,9 +51,11 @@ class TypeScriptAdapter(LanguageAdapter):
         if result.returncode != 0:
             raise RuntimeError(f"install failed:\n{result.stderr}")
 
-    def run_tests(self, sandbox, env: Environment, test_ids: list[str] | None = None) -> str:
+    def run_tests(
+        self, sandbox, env: Environment, test_ids: list[str] | None = None, timeout: int = 300
+    ) -> str:
         cmd = self._build_test_cmd(env.test_runner, test_ids)
-        result = sandbox.run(cmd, cwd=self.package_path, timeout=300)
+        result = sandbox.run(cmd, cwd=self.package_path, timeout=timeout)
 
         output_filename = "jest-results.json" if env.test_runner == "jest" else "vitest-results.json"
         output_file = self.package_path / output_filename

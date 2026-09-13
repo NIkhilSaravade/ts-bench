@@ -1,5 +1,5 @@
-# harness/local_sandbox.py
 import os
+import signal
 import subprocess
 from pathlib import Path
 
@@ -9,4 +9,19 @@ class LocalSandbox:
 
     def run(self, cmd: list[str], cwd: Path, timeout: int = 300) -> subprocess.CompletedProcess:
         env = {**os.environ, "CI": "1"}
-        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
+        proc = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,  # child becomes its own process-group leader
+        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            proc.communicate()  # reap so it doesn't zombie
+            raise TimeoutError(f"{' '.join(cmd)} exceeded {timeout}s in {cwd}") from None
+        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)

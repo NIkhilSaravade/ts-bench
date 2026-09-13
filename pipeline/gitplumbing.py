@@ -1,6 +1,8 @@
-"""Thin wrappers around the git operations the validator needs."""
+"""Thin wrappers around the git operations the validator and the eval runner need."""
 
+import re
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -83,3 +85,64 @@ def apply_patch(dest: Path, patch_text: str) -> None:
     )
     if result.returncode != 0:
         raise RuntimeError(f"patch failed to apply in {dest}:\n{result.stdout}\n{result.stderr}")
+
+
+@dataclass(frozen=True)
+class PatchApplyResult:
+    ok: bool
+    strategy: str | None  # "strict" | "fuzzy" | "empty", or None on failure
+    stdout: str
+    stderr: str
+
+
+def try_apply_patch(dest: Path, patch_text: str) -> PatchApplyResult:
+    """Never raises. An untrusted patch is data to score, not a contract to trust.
+
+    Tries a leniency ladder: exact context match first, then a fuzzy match
+    that tolerates minor line-offset drift. GNU patch's default fuzz is
+    already 2, so both --fuzz values are set explicitly -- otherwise the two
+    attempts would behave identically and the ladder would do nothing.
+    """
+    if not patch_text.strip():
+        return PatchApplyResult(ok=True, strategy="empty", stdout="", stderr="")
+
+    attempts = [
+        ("strict", ["patch", "-p1", "--batch", "--fuzz=0", "-d", str(dest)]),
+        ("fuzzy", ["patch", "-p1", "--batch", "--fuzz=3", "-d", str(dest)]),
+    ]
+    stdout = stderr = ""
+    for name, cmd in attempts:
+        result = subprocess.run(cmd, input=patch_text, capture_output=True, text=True)
+        if result.returncode == 0:
+            return PatchApplyResult(ok=True, strategy=name, stdout=result.stdout, stderr=result.stderr)
+        stdout, stderr = result.stdout, result.stderr
+
+    return PatchApplyResult(ok=False, strategy=None, stdout=stdout, stderr=stderr)
+
+
+_DIFF_GIT_RE = re.compile(r"^diff --git a/(.+?) b/(.+?)$", re.MULTILINE)
+
+
+def diff_touched_paths(patch_text: str) -> list[str]:
+    """Return the file paths (post-image side) a unified diff touches.
+    Best-effort: malformed input yields an empty list, never an exception."""
+    return sorted({m.group(2) for m in _DIFF_GIT_RE.finditer(patch_text)})
+
+
+def restore_paths(mirror: Path, base_commit: str, dest: Path, paths: list[str]) -> None:
+    """Reset specific files back to their base_commit content, pulled straight
+    from the mirror. No new git state needed anywhere -- the mirror is already
+    the source of truth for "what did this file look like before anyone touched it"."""
+    for rel_path in paths:
+        result = subprocess.run(
+            ["git", f"--git-dir={mirror}", "show", f"{base_commit}:{rel_path}"],
+            capture_output=True,  # binary-safe: no text=True
+        )
+        target = dest / rel_path
+        if result.returncode == 0:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(result.stdout)
+        else:
+            # didn't exist at base_commit -- candidate patch created it
+            # (e.g. a new test file). Reset means it shouldn't be here.
+            target.unlink(missing_ok=True)

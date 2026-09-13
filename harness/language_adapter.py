@@ -1,4 +1,3 @@
-# harness/language_adapter.py
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -27,7 +26,13 @@ class LanguageAdapter(ABC):
         """Get dependencies installed reproducibly inside the sandbox."""
 
     @abstractmethod
-    def run_tests(self, sandbox, env: Environment, test_ids: list[str] | None) -> str:
+    def run_tests(
+        self,
+        sandbox,
+        env: Environment,
+        test_ids: list[str] | None = None,
+        timeout: int = 300,
+    ) -> str:
         """Execute tests (all, or only test_ids) and return raw runner output."""
 
     @abstractmethod
