@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ts-bench-postgres
+    environment:
+      POSTGRES_USER: tsbench
+      POSTGRES_PASSWORD: tsbench
+      POSTGRES_DB: tsbench
+    ports:
+      - "5432:5432"
+    volumes:
+      - ts-bench-postgres-data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+volumes:
+  ts-bench-postgres-data:
