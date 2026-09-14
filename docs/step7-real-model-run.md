@@ -77,7 +77,49 @@ Ran single real attempts against `ollama_chat/qwen2.5-coder:14b` across all thre
 
 **Verified actually running, not just launched:** `ps aux` showed `ollama`'s `llama-server` subprocess at 334% CPU / 54% memory — genuinely computing, not stalled — a few minutes after launch.
 
-*(This section will be updated with real results, any further bugs found, and final per-model numbers once the run completes.)*
+**Watched continuously** via a background poll script (`scratch/watch_leaderboard_run.sh`, gitignored) checking `results/oss_leaderboard_run1.jsonl`'s line count and any `infra_error` status every 15 minutes — this is what caught bugs #2 and #3 below in near-real-time instead of after the fact.
+
+---
+
+## Bug #2: `is_compile_failure`'s substring check was itself truncation-fragile
+
+**Where:** `harness/java_adapter.py`'s `is_compile_failure()`.
+
+**How it was found:** ~20 minutes into the run, the watcher caught a *second* real `infra_error` — this time on `jhy__jsoup-2602` again, under the exact fix from Bug #1. Investigating the full stored `stderr_tail` showed a real model patch had introduced a syntax error into `HtmlTreeBuilder.java` (a main source file), producing over a hundred repeated `[ERROR] ... class, interface, or enum expected` lines — a genuine cascading-parse-error pattern, but with **no** occurrence of "COMPILATION ERROR" or "Compilation failure" anywhere in the captured text; Maven's own summary banner had been pushed out of the tail entirely by the sheer volume of per-line diagnostics.
+
+**Root cause:** `is_compile_failure()` string-matched against `str(error)` — the *already-truncated* exception message (`stdout[-3000:]` + `stderr[-1000:]`, from Bug #1's fix). This is exactly the truncation-fragility problem T14 originally identified and tried to guard against by checking multiple substrings — but a different cascading error pattern (many short repeated diagnostics rather than one repeated missing-symbol reference) can still push every recognized banner phrase out of a fixed-size tail. Adding one more magic substring to an open-ended allowlist doesn't end this problem, it just delays the next occurrence.
+
+**Fix (structural, not another substring):** introduced `JavaCompileFailure(RuntimeError)`, a distinct exception type. `install()` and `run_tests()` now check Maven's **full, untruncated** `result.stdout` (before any truncation for storage) against a marker list (`_is_compile_failure_text()`) and raise `JavaCompileFailure` specifically when a compile-failure marker is found anywhere in it — truncation for the stored/logged message still happens, but only *after* classification, so it can never affect the classification itself. `is_compile_failure()` now simply checks `isinstance(error, JavaCompileFailure)`. This closes the entire class of bug, not just the two specific error patterns observed so far.
+
+**Verification:** new unit tests (`tests/test_java_adapter.py`) covering both the isinstance-based contract and the specific cascading-error pattern that motivated it; full suite green (41/41 at this point); a direct real-mirror re-check confirmed T14's mining-time salvage path (`pipeline/validate.py`'s `red_run`, via `install()`) still classifies `jhy__jsoup-2602` correctly under the new exception type.
+
+**Commit:** `4938305` — `fix: Java compile-failure detection was still truncation-fragile`.
+
+---
+
+## Bug #3: `install()`'s exception handler in `eval_runner.py` never got the same fix
+
+**Where:** `harness/eval_runner.py`, the `try: adapter.install(sandbox, env)` block.
+
+**How it was found:** immediately after Bug #2's fix, while still investigating the run, a **third** `infra_error` was already sitting in the results file: `stleary__JSON-java-1068`, repeat 1. Its record had `patch_strategy=None` — meaning the failure happened *before* `git.try_apply_patch()` ever ran, i.e. during `install()`, not `run_tests()`.
+
+**Root cause:** Bug #1's fix only added the `is_compile_failure()` check to `run_tests()`'s exception handler. `install()`'s handler was left as a bare `except Exception as e: return done(EvalStatus.INFRA_ERROR, ...)` — an asymmetry that became a real gap the moment `java_adapter.py`'s `install()` was updated (as part of Bug #2's fix) to also raise `JavaCompileFailure`.
+
+**Important nuance investigated before concluding this was "just another instance of the same bug":** `install()` always runs on **bare `base_commit`, before any patch (candidate or test) is applied**. A genuine, persistent compile failure at that stage would mean the dataset instance itself is broken independent of any agent — a real dataset-quality problem, not a scoring bug. This was taken seriously enough to check directly: a fresh, isolated re-run of `install()` against `stleary__JSON-java-1068`'s real `base_commit` (no patches, no other process involved) **succeeded cleanly**. Given several manual diagnostic Maven builds (used to investigate Bug #2) had been run concurrently against the same shared `~/.m2` local repository cache while this background job was still executing, the most likely explanation is transient resource contention between concurrent Maven processes, not a real compile-time defect in the instance. This is recorded as an **operational lesson** rather than a code bug: don't run manual Maven-based diagnostics concurrently with a live Java evaluation run against the same machine's `~/.m2` cache.
+
+**Fix (made regardless of the above, for correctness/symmetry):** mirrored the identical `is_compile_failure()` check onto `install()`'s exception handler. Even though a *real* install()-stage compile failure should be rare to nonexistent for a validated instance, the asymmetry itself was a latent bug — if it ever does fire for real, it must be scored the same honest way, not silently misclassified.
+
+**Verification:** since a real install()-stage compile failure isn't reliably reproducible on demand, added a unit test using a monkeypatched fake `LanguageAdapter` (`tests/test_harness_step10.py::test_evaluate_install_stage_compile_failure_is_resolved_false`) that forces exactly this code path. Full suite green (42/42).
+
+**Remediation applied to the in-flight run:** both bad lines (`jhy__jsoup-2602` rep 0, `stleary__JSON-java-1068` rep 1) were removed from `results/oss_leaderboard_run1.jsonl` before restarting, so `run_driver.py`'s resumability logic retries them under the fixed code instead of treating the wrong classification as permanently done. The run was stopped, the two lines removed, and restarted with the identical command — 210 already-correct completed attempts were preserved and skipped automatically.
+
+**Commit:** `f1871c4` — `fix: install()-stage compile failures had the same infra_error gap`.
+
+---
+
+## Operational lesson: don't run manual Maven diagnostics concurrently with a live Java eval run
+
+Both Bug #2 and Bug #3's investigations involved running one-off diagnostic Python scripts (calling `install()`/`red_run()` directly against real mirrors) *while* the 960-attempt background job was still executing. Since all Maven processes on this machine share one `~/.m2` local repository cache, concurrent builds can plausibly race on partially-written artifacts. No corruption was proven, but it's the most likely explanation for Bug #3's non-reproducing `infra_error`. Going forward: pause or wait between attempts before running ad hoc Maven-based verification while a real run is in flight, or give diagnostic scripts an isolated `-Dmaven.repo.local=`.
 
 ---
 
