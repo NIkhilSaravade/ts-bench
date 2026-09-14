@@ -6,6 +6,7 @@ from pathlib import Path
 
 from harness.adapters import get_adapter
 from harness.local_sandbox import LocalSandbox
+from harness.test_outcomes import resolve_test_outcome
 from pipeline import gitplumbing as git
 from pipeline.schema import Environment as SchemaEnvironment
 from pipeline.schema import TaskInstance
@@ -55,7 +56,37 @@ def red_run(candidate: Candidate, mirrors_dir: Path, work_dir: Path) -> dict:
     sandbox = LocalSandbox()
     adapter = get_adapter(candidate.language, dest, package_path)
     env = adapter.detect_environment(dest)
-    adapter.install(sandbox, env)
+
+    try:
+        adapter.install(sandbox, env)
+    except Exception as e:  # noqa: BLE001 -- deliberately broad, see is_compile_failure below
+        if not adapter.is_compile_failure(e):
+            raise
+        salvaged = adapter.extract_test_ids_from_diff(test_patch)
+        if not salvaged:
+            raise
+        # T14's finding: for a compiled language, test code that calls a
+        # not-yet-added method/class won't just fail at base_commit, it
+        # won't compile at all -- which is the bug being real in its most
+        # extreme form, not a reason to discard the candidate. Nothing ran,
+        # so there's no baseline pass/fail split and no pass_to_pass
+        # regression guard for this instance's red side; green_run still
+        # has to independently prove gold_patch makes it compile AND pass.
+        return {
+            "base": base,
+            "head": head,
+            "dest": dest,
+            "language": candidate.language,
+            "package_path": candidate.package_path,
+            "test_files": test_files,
+            "non_test_files": non_test_files,
+            "test_patch": test_patch,
+            "gold_patch": gold_patch,
+            "candidate_f2p": salvaged,
+            "baseline_passing": set(),
+            "flaky_targets": [],
+            "compiled_at_base": False,
+        }
 
     per_test = run_tests_n_times(adapter, sandbox, env, n=3)
     results = deterministic_only(per_test)
@@ -77,6 +108,7 @@ def red_run(candidate: Candidate, mirrors_dir: Path, work_dir: Path) -> dict:
         "candidate_f2p": candidate_f2p,
         "baseline_passing": baseline_passing,
         "flaky_targets": flaky_targets,
+        "compiled_at_base": True,
     }
 
 
@@ -98,8 +130,8 @@ def green_run(red_result: dict, n: int = 3) -> dict:
         if k not in results and (k in red_result["candidate_f2p"] or k in red_result["baseline_passing"])
     ]
 
-    still_failing = [k for k in red_result["candidate_f2p"] if not results.get(k, False)]
-    regressed = [k for k in red_result["baseline_passing"] if not results.get(k, False)]
+    still_failing = [k for k in red_result["candidate_f2p"] if not resolve_test_outcome(results, k)]
+    regressed = [k for k in red_result["baseline_passing"] if not resolve_test_outcome(results, k)]
 
     return {
         "results": results,

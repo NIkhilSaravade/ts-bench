@@ -125,6 +125,62 @@ class JavaAdapter(LanguageAdapter):
                 out[f"{classname}::{name}"] = not failed
         return out
 
+    def is_compile_failure(self, error: Exception) -> bool:
+        # install()'s own error message truncates to the last few thousand
+        # characters of Maven's output (see install()) -- for a test file
+        # with many repeated errors (the same missing symbol referenced on
+        # a dozen lines), that tail can cut off the "COMPILATION ERROR"
+        # banner itself while still containing these, which appear right
+        # next to each individual [ERROR] line and survive truncation.
+        text = str(error)
+        return any(s in text for s in ("COMPILATION ERROR", "Compilation failure", "cannot find symbol"))
+
+    def extract_test_ids_from_diff(self, diff_text: str) -> list[str]:
+        """Pull `classname::methodName` targets straight out of a unified
+        diff of test files, with no compiler or test runner involved --
+        this only ever runs when the real ones can't even compile (T14's
+        "compile failure as fails-at-base" finding). A JUnit test method is
+        recognized by an added `@Test`/`@ParameterizedTest` annotation
+        followed (skipping any other added annotation lines in between) by
+        an added `void methodName(...)` line; the class name comes from the
+        diff's own `+++ b/.../src/test/java/...Foo.java` file header.
+        Best-effort: a wrong guess here just fails to be confirmed later by
+        the real Surefire/JUnit XML output in green_run, never a false
+        validation -- it can only under-count, not over-claim.
+        """
+        test_ids: list[str] = []
+        current_class: str | None = None
+        awaiting_method = False
+
+        for line in diff_text.splitlines():
+            file_header = re.match(r"^\+\+\+ b/(.+)$", line)
+            if file_header:
+                current_class = self._java_classname_from_path(file_header.group(1))
+                awaiting_method = False
+                continue
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+
+            content = line[1:]
+            if "@Test" in content or "@ParameterizedTest" in content:
+                awaiting_method = True
+                continue
+            if awaiting_method:
+                if content.strip().startswith("@"):
+                    continue  # another annotation on its own line -- keep waiting
+                m = re.search(r"\bvoid\s+(\w+)\s*\(", content)
+                if m and current_class:
+                    test_ids.append(f"{current_class}::{m.group(1)}")
+                awaiting_method = False
+
+        return test_ids
+
+    def _java_classname_from_path(self, path: str) -> str | None:
+        m = re.search(r"src/test/(?:java|kotlin|groovy)/(.+)\.java$", path)
+        if not m:
+            return None
+        return m.group(1).replace("/", ".")
+
     # --- private helpers ---
 
     def _module_scope_flags(self, manager: str) -> list[str]:

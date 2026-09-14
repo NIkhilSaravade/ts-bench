@@ -15,6 +15,7 @@ from pathlib import Path
 from harness.adapters import get_adapter
 from harness.eval_result import EvalResult, EvalStatus
 from harness.local_sandbox import LocalSandbox
+from harness.test_outcomes import resolve_test_outcome
 from pipeline import gitplumbing as git
 from pipeline.schema import TaskInstance
 
@@ -111,8 +112,8 @@ def evaluate(
             return done(EvalStatus.INFRA_ERROR, stderr_tail=str(e)[-2000:])
 
         outcomes = adapter.parse_results(raw, env.test_runner)
-        f2p = {t: outcomes.get(t, False) for t in instance.fail_to_pass}
-        p2p = {t: outcomes.get(t, False) for t in instance.pass_to_pass}
+        f2p = {t: resolve_test_outcome(outcomes, t) for t in instance.fail_to_pass}
+        p2p = {t: resolve_test_outcome(outcomes, t) for t in instance.pass_to_pass}
         resolved = all(f2p.values()) and all(p2p.values())
 
         # Step 7: SCORE

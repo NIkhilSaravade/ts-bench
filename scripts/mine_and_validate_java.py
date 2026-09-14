@@ -13,13 +13,13 @@ from pipeline.miner import mine_repo
 from pipeline.schema import TaskInstance
 from pipeline.validate import validate_candidate
 
-REPOS_TO_MINE = ["google/gson"]
+REPOS_TO_MINE = ["jhy/jsoup", "stleary/JSON-java"]
 # google/gson is a multi-module Maven reactor (gson/, test-jpms/, extras/,
 # metrics/, proto/, ...) -- the reactor root itself isn't buildable/testable
 # in isolation, so every candidate is scoped to the actual library submodule.
 PACKAGE_PATHS = {"google/gson": "gson"}
 MINE_MAX_PAGES = 30
-MAX_CANDIDATES_PER_REPO = 40
+MAX_CANDIDATES_PER_REPO = 45
 TARGET_VALIDATED_PER_REPO = 3
 
 ROOT = Path.home() / "projects" / "ts-bench"

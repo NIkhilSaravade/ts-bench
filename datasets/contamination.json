@@ -59,6 +59,36 @@
     "pr_merge_date": "2026-07-13",
     "repo": "jd/tenacity"
   },
+  "jhy__jsoup-2595": {
+    "head_commit": "444c5a5d9ebf958aa5e834841455bf74384b9297",
+    "pr_merge_date": "2026-09-07",
+    "repo": "jhy/jsoup"
+  },
+  "jhy__jsoup-2598": {
+    "head_commit": "8ca4902ff3d9485f5d5c862d329757c4518fc2dc",
+    "pr_merge_date": "2026-09-08",
+    "repo": "jhy/jsoup"
+  },
+  "jhy__jsoup-2602": {
+    "head_commit": "97a392158f4d849af762ee7e984fb37c18bcd610",
+    "pr_merge_date": "2026-09-11",
+    "repo": "jhy/jsoup"
+  },
+  "stleary__JSON-java-1044": {
+    "head_commit": "b959027aa2e0f2757ffa53f3941e729590df90ea",
+    "pr_merge_date": "2026-03-16",
+    "repo": "stleary/JSON-java"
+  },
+  "stleary__JSON-java-1068": {
+    "head_commit": "80efb529d7fa19505a368ff0d2c123b7f12ed0ca",
+    "pr_merge_date": "2026-07-19",
+    "repo": "stleary/JSON-java"
+  },
+  "stleary__JSON-java-814": {
+    "head_commit": "783d298f990c75fa2de4f458d1647cbf8e46a858",
+    "pr_merge_date": "2023-10-31",
+    "repo": "stleary/JSON-java"
+  },
   "trpc__trpc-7370": {
     "head_commit": "c7360d4eb3c89c336468809a293e5cda4b302d4b",
     "pr_merge_date": "2026-05-26",
