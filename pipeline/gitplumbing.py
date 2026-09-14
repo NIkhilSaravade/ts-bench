@@ -53,8 +53,20 @@ def changed_files(mirror: Path, base: str, head: str) -> list[str]:
     return [line for line in out.splitlines() if line]
 
 
+_COLOCATED_TEST_BASENAMES = {"test.ts", "test.tsx", "test.js", "test.jsx", "test.cjs", "test.mjs"}
+
+
 def is_test_path(path: str) -> bool:
-    return ".test." in path or ".spec." in path or "/tests/" in path or "/__tests__/" in path
+    # `.test.ts`-suffix (zod, trpc) and colocated-bare-`test.ts` (date-fns:
+    # one `test.ts` per source file, in the same directory) are both
+    # real, widely-used conventions -- neither implies the other.
+    return (
+        ".test." in path
+        or ".spec." in path
+        or "/tests/" in path
+        or "/__tests__/" in path
+        or path.rsplit("/", 1)[-1] in _COLOCATED_TEST_BASENAMES
+    )
 
 
 def extract_diff(mirror: Path, base: str, head: str, pathspecs: list[str]) -> str:

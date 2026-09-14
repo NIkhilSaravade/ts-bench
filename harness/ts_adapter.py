@@ -1,5 +1,7 @@
 # harness/ts_adapter.py
 import json
+import os
+import subprocess
 from pathlib import Path
 
 from harness.language_adapter import Environment, LanguageAdapter
@@ -26,6 +28,7 @@ class TypeScriptAdapter(LanguageAdapter):
         # to scope test runner detection and test execution to one package,
         # while package manager / node version stay resolved from the root.
         self.package_path = package_path or repo_path
+        self._pinned_env_cache: dict[str, dict[str, str]] = {}
 
     def detect_environment(self, repo_path: Path) -> Environment:
         manager, _pinned = self._detect_package_manager(self.repo_path)
@@ -42,11 +45,12 @@ class TypeScriptAdapter(LanguageAdapter):
     def install(self, sandbox, env: Environment) -> None:
         self._sanitize_package_manager_field(self.repo_path)
         self._sanitize_lifecycle_scripts(self.repo_path)
+        extra_env = self._pinned_env(env.language_version)
 
-        result = sandbox.run(env.install_cmd, cwd=self.repo_path)
+        result = sandbox.run(env.install_cmd, cwd=self.repo_path, extra_env=extra_env)
         if result.returncode != 0 and "ERR_PNPM_IGNORED_BUILDS" in result.stderr:
-            sandbox.run(["pnpm", "approve-builds", "--all"], cwd=self.repo_path)
-            result = sandbox.run(env.install_cmd, cwd=self.repo_path)
+            sandbox.run(["pnpm", "approve-builds", "--all"], cwd=self.repo_path, extra_env=extra_env)
+            result = sandbox.run(env.install_cmd, cwd=self.repo_path, extra_env=extra_env)
 
         if result.returncode != 0:
             raise RuntimeError(f"install failed:\n{result.stderr}")
@@ -55,7 +59,8 @@ class TypeScriptAdapter(LanguageAdapter):
         self, sandbox, env: Environment, test_ids: list[str] | None = None, timeout: int = 300
     ) -> str:
         cmd = self._build_test_cmd(env.test_runner, test_ids)
-        result = sandbox.run(cmd, cwd=self.package_path, timeout=timeout)
+        extra_env = self._pinned_env(env.language_version)
+        result = sandbox.run(cmd, cwd=self.package_path, timeout=timeout, extra_env=extra_env)
 
         output_filename = "jest-results.json" if env.test_runner == "jest" else "vitest-results.json"
         output_file = self.package_path / output_filename
@@ -138,6 +143,41 @@ class TypeScriptAdapter(LanguageAdapter):
                 changed = True
         if changed:
             pkg_json.write_text(json.dumps(data, indent=2))
+
+    def _pinned_env(self, version: str) -> dict[str, str]:
+        """PATH override so install/test subprocesses run under the repo's
+        OWN pinned node version, not whatever the ambient shell's nvm default
+        happens to be.
+
+        detect_environment() has always recorded node_version as metadata,
+        but nothing previously used it to actually switch node -- every
+        subprocess just ran under the ambient default. That stayed invisible
+        while the default and every mined repo's pin were close enough (e.g.
+        zod's default-pinned "20.11.1" against an ambient v20/v22), but broke
+        outright once the ambient default moved to v24 and a repo pinned to
+        v22 hit a real cross-version undici/AbortSignal incompatibility
+        (`RequestInit: Expected signal ... to be an instance of AbortSignal`)
+        that has nothing to do with the candidate's actual fix. Caching this
+        per (adapter instance, version) matters because install() and every
+        run_tests() call (repeated N times for flake detection) would
+        otherwise re-invoke nvm/corepack every single time.
+        """
+        if version not in self._pinned_env_cache:
+            self._pinned_env_cache[version] = {"PATH": f"{self._node_bin_dir(version)}:{os.environ['PATH']}"}
+        return self._pinned_env_cache[version]
+
+    def _node_bin_dir(self, version: str) -> Path:
+        """Resolve the bin dir for `version` via nvm, installing it (and
+        enabling corepack for it, so pnpm/yarn shims exist under that
+        specific node install) if it isn't already present."""
+        script = (
+            'export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; '
+            f"nvm install {version} >&2 && nvm exec {version} corepack enable >&2 && nvm which {version}"
+        )
+        result = subprocess.run(["bash", "-lc", script], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"could not resolve node {version} via nvm:\n{result.stderr}")
+        return Path(result.stdout.strip().splitlines()[-1]).parent
 
     def _detect_node_version(self, repo_path: Path, default: str = "20.11.1") -> str:
         for fname in (".nvmrc", ".node-version"):

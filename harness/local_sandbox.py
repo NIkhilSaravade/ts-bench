@@ -7,8 +7,14 @@ from pathlib import Path
 class LocalSandbox:
     """v0.1 stand-in for the future Docker Sandbox — same shape, no isolation."""
 
-    def run(self, cmd: list[str], cwd: Path, timeout: int = 300) -> subprocess.CompletedProcess:
-        env = {**os.environ, "CI": "1"}
+    def run(
+        self,
+        cmd: list[str],
+        cwd: Path,
+        timeout: int = 300,
+        extra_env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess:
+        env = {**os.environ, "CI": "1", **(extra_env or {})}
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,

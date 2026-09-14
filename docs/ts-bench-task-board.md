@@ -1,0 +1,502 @@
+# TS-Bench — Task Board
+
+> Your operating manual for the build. This is the *compressed* path — the full arc lives in `ts-bench-execution-plan.md`; this doc reorders it into small tasks you can each finish in one fresh chat. No timeboxes — advance by finishing objectives and passing gates, not by the clock.
+
+## How to use this board
+
+1. **One task = one fresh chat window.** Each task below has a **▶ Starter prompt** — copy it into a new chat *inside this "TS Benchmark" project* (so that chat can read the execution plan for full context). Work only that task there.
+2. **Never cross a Done-when gate on hope.** If the gate says "gold patch resolves, empty patch fails" and it doesn't, you have a harness bug — that's the finding, not a reason to move on.
+3. **Push after every task.** `git add -A && git commit && git push`. This is what guarantees nothing is lost.
+4. **Come back here between tasks** to tick the box and read the next Starter prompt.
+
+## Scope tiers (priority, not schedule)
+
+- **Must-have spine** — this is what makes it a real benchmark: T1 → T2 → T4 → T6 → T7 → T8 → T9. Build only these and you have a working, credible v0.1 with real scores. **Status as of Sep 2026: complete**, but only proven against `MockModel` — no real top-model leaderboard numbers exist yet by design (see the Budget note under T9).
+- **Full-completion scope (decided Sep 2026): build everything, not just the spine.** T3, T5, T10, and the four items formerly parked under "After v0.1" (Docker sandbox, Kafka/K8s scale-out, rigor hardening, multi-language adapters) are now full tracked tasks — T11 through T15 below — not someday-bullets. Real top-model spend is deliberately the *last* step, once the system is "prod ready": all dev/testing until then runs on `MockModel` or local open-weight models via Ollama (already proven working in T7), exactly zero real API cost.
+- **Fallback rule:** if the miner (T3) stalls or isn't yielding clean candidates, stop mining and hand-pick more PRs manually, then go straight to rigor hardening (T11) with what you have. The gold/empty gate must never be starved — clean tasks beat a perfect miner that produced none.
+
+### Recommended order from here
+
+This isn't gospel — it's staged so each step's foundation is trustworthy before the next one builds on it. Reorder freely (e.g. jump to a language adapter early if that's the more interesting thing to work on next) — task numbers below don't encode a required sequence, just identity.
+
+1. ~~**T3 — grow the dataset.**~~ **Done** — 13 validated instances across 3 repos (5 zod + 2 date-fns + 6 trpc), no API spend. See T3's notes for the real blocker that was fixed along the way (node-version pinning).
+2. **T11 — rigor hardening on the bigger dataset.** Contamination metadata + a standalone flakiness/reproducibility audit script, run against whatever T3 produced, before building anything further on top of it.
+3. **T5 — dataset packaging + Postgres.** Worth doing once there's a real, audited dataset to persist, not before.
+4. **T12 — Docker layered sandbox.** Swaps in real isolation and, crucially, install-layer caching — directly attacks the "reinstall from scratch on every single `evaluate()` call" cost T9 flagged as a known gap.
+5. **T13 → T14 — PythonAdapter, then JavaAdapter.** Should be clean drop-ins if T2's four-method seam was designed right; if either isn't, that's a real architectural finding, not just extra work.
+6. **T15 — Kafka/K8s scale-out.** Once there's enough real volume (languages × repos × models × repeats) that a sequential loop is genuinely painful — building this before that point is showcase-for-its-own-sake, not a real need.
+7. **Budget + real top models.** Once everything above is "prod ready," estimate real API spend and run T9's matrix against real frontier models for the first time. Everything through step 6 stays on `MockModel`/local Ollama models.
+8. **T10 — leaderboard + methodology writeup.** Built last, wired to real numbers, not mock ones.
+
+## Environment note
+
+Build **locally on your machine** (you have Docker + your code-execution platform there). Where a task says "sandbox," your v0.1 backend can be a **local subprocess runner** (clone repo, install, run tests in a temp dir) hidden behind a `Sandbox` interface — Docker becomes a drop-in later (T12). Same seam trick as the `LanguageAdapter`.
+
+Working environment: **WSL2 (Ubuntu)** on Windows, project at `~/projects/ts-bench` (inside the Linux filesystem, not `/mnt/c/...`, for performance). Repo is live at `github.com/NIkhilSaravade/ts-bench`, pushed via SSH.
+
+**Working with Claude across chats (learned during T6):** the Claude desktop app / remote-devices bridge runs on the Windows host and cannot reach WSL2 paths directly — `device_request_folder_access` rejects UNC paths (`\\wsl.localhost\...`) outright, and mapping a drive letter via `net use \\wsl.localhost\...` fails with a bogus credential prompt (`wsl.localhost` is a special filesystem provider Explorer can browse, not a real SMB share `net use` can authenticate against). Claude Code CLI run locally also hit a transient "another process is refreshing the OAuth token" lock. Working pattern (Claude.ai/Cowork sessions): Claude writes complete file contents as a single bash heredoc script (`cat > path <<'PYEOF' ... PYEOF` per file, plus small inline `python3 - <<'PYEOF'` string-replace blocks for targeted edits to existing files), pasted and run once in the WSL2 terminal. **Update Sep 2026: Claude Code now runs natively inside VS Code in this WSL2 environment**, so this bridge workaround is no longer needed for sessions run that way — Claude Code there can read/write files and run commands directly. This doc (and the other two in `docs/`) are meant to be read by Claude Code directly out of the repo; see `CLAUDE.md` at the repo root for the operating rules for those sessions.
+
+---
+
+## The map
+
+| # | Task | Tier | Unlocks | Status |
+|---|------|------|---------|--------|
+| T1 | Repo skeleton + env + task schema | Must | everything | ✅ Done — pushed, CI green |
+| T2 | `LanguageAdapter` interface + `TypeScriptAdapter` | Must | any test run | ✅ Done — verified against 3 real repos, stable across runs |
+| T3 | GitHub miner (PR/issue candidates) | Must (spine complete) | task supply | ✅ Done — 13 total validated instances across 3 repos (5 zod + 2 date-fns + 6 trpc), gold/empty gate passes through the actual runner on all 13 |
+| T4 | Task validator + gold/empty gate | **Must (heart)** | real tasks | ✅ Done — 5/5 hand-picked zod candidates validated, zero rejections |
+| T5 | Dataset packaging + Postgres | Must (spine complete) | comparable results | |
+| T6 | Eval runner + scoring | Must | scores | ✅ Done — gate passed (5/5 gold resolve, 0/5 empty resolve) through the actual runner; 9/9 failure-mode tests passing |
+| T7 | Reference agent scaffold | Must | an agent to score | ✅ Done — done-when gate met against `anthropic/claude-haiku-4-5-20251001`: a clean fail, a clean partial-fail, and a genuine solve across 3 validated zod instances (see notes) |
+| T8 | Model runner via LiteLLM (OpenRouter + mock) | Must | multi-model | ✅ Done — MockModel loop verified offline; real Anthropic calls (Sonnet 4.5, Haiku 4.5) verified with real cost/token logging; a genuine mid-run billing failure was correctly classified as infra_error, not a solve failure (see notes) |
+| T9 | First results: pass@k, variance, cost | Must | the numbers | ✅ Done (on MockModel) — pass@k + bootstrap variance verified correct by hand against real run output; two independent 10-repeat runs reproduced the same model ranking; real top-model run deliberately deferred to step 7 of the recommended order (see notes for the small-dataset caveat that motivated T3/T11) |
+| T10 | Leaderboard page + methodology writeup | Must (spine complete) | the launch | built last, once real numbers exist |
+| T11 | Rigor hardening: contamination + flakiness/reproducibility audit | Must (spine complete) | trustworthy scale-up | |
+| T12 | Docker layered sandbox | Must (spine complete) | reproducibility, faster repeats | |
+| T13 | `PythonAdapter` | Must (spine complete) | multi-language | |
+| T14 | `JavaAdapter` | Must (spine complete) | multi-language | |
+| T15 | Kafka/K8s scale-out job queue | Must (spine complete) | systems showcase | |
+
+---
+
+## T1 — Repo skeleton + environment + task schema  · Must · ✅ Done
+
+**Goal.** A clean monorepo with a reproducible Python env, and the *task instance* modeled as validated code with one example that validates and one malformed example that is rejected.
+
+**Why (first principles).** The task schema is the contract every later stage reads and writes. If it's sloppy, every downstream bug is a schema bug wearing a disguise. Defining it first — as a real, validated type — forces you to be precise about what a "task" actually *is* before you build anything that depends on it.
+
+**Build.**
+- Monorepo: `pipeline/` (mining+validation), `harness/` (execution), `agent/` (scaffold), `leaderboard/` (site), `datasets/`, `infra/`.
+- Python env with `uv`; `ruff` for lint/format; a pre-commit hook; a minimal GitHub Actions CI that runs lint.
+- A `pydantic` model `TaskInstance` with fields: `instance_id`, `repo`, `base_commit`, `problem_statement`, `gold_patch`, `test_patch`, `fail_to_pass: list[str]`, `pass_to_pass: list[str]`, `environment` (node version, package manager, install cmd, test cmd).
+- One hand-authored valid `example_instance.json` and one deliberately malformed one, plus a tiny test asserting the first validates and the second raises.
+
+**Learn.** Modern Python project hygiene (uv, lockfiles, packaging) — new coming from Java/Maven, worth doing right once; Pydantic validation.
+
+**Done-when.** `uv run pytest` shows the valid instance passing validation and the malformed one rejected; CI runs `ruff` on push.
+
+**Pitfalls.** Don't gold-plate the layout. A skeleton that runs beats a perfect tree that doesn't.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- Newer `uv` versions (0.10+) default `uv init` to a library-style scaffold (`src/<project_name>/__init__.py` + its own `uv_build` backend + a `[project.scripts]` entry). That doesn't match this repo's `pipeline/harness/agent/...` naming, so use `uv init --name ts-bench --python 3.12 --no-readme --no-package` to get the flat layout instead.
+- Making `pipeline/` actually importable (`from pipeline.schema import TaskInstance`) requires adding `[build-system]` (hatchling) + `[tool.hatch.build.targets.wheel] packages = ["pipeline"]` to `pyproject.toml`, then `uv sync` — otherwise you hit `ModuleNotFoundError: No module named 'pipeline'` even though the file exists.
+- `pydantic`'s `model_validator(mode="after")` only runs if every field-level validator already passed — an object with multiple simultaneous field errors never reaches an "after" check. Worth designing malformed test fixtures around this (either isolate the semantic/model-level check in its own case, or expect only the field-level errors to surface).
+- `pre-commit run --all-files` reads `git ls-files` (tracked files), not the raw filesystem — `git add` first or it reports "no files to check" / "Skipped" on everything.
+
+**▶ Starter prompt:**
+> I'm building TS-Bench, a benchmark for AI coding agents on TypeScript repos (full context: read the `ts-bench-execution-plan.md` doc in this project, Step 2). I'm on Java/Spring and new to modern Python tooling — explain the *why* first-principles as we go, no skipped steps. Help me set up: a monorepo (`pipeline/ harness/ agent/ leaderboard/ datasets/ infra/`), a `uv` Python env with ruff + pre-commit + a minimal lint CI, and a Pydantic `TaskInstance` model with fields instance_id, repo, base_commit, problem_statement, gold_patch, test_patch, fail_to_pass, pass_to_pass, environment. Then a valid example instance + a malformed one + a pytest that proves one validates and one is rejected. Walk me command-by-command.
+
+---
+
+## T2 — `LanguageAdapter` interface + `TypeScriptAdapter`  · Must · ✅ Done
+
+**Goal.** A four-method seam that isolates everything language-specific, plus a working TS adapter that reliably maps test-runner output to `{test_id: pass|fail}`.
+
+**Why (first principles).** ~90% of a code-agent benchmark is language-agnostic: a git diff, a sandbox, "tests that fail before and pass after," a score. Only four things depend on the language. Naming that boundary now makes Java/Python later a *drop-in*. And the test-ID mapping is the whole success signal — if you can't deterministically say *which named tests* passed, you have no benchmark.
+
+**Build.**
+- Interface with exactly: `detect_environment(repo)`, `install(sandbox)`, `run_tests(sandbox, test_ids)`, `parse_results(raw_output) -> {test_id: pass|fail}`.
+- `TypeScriptAdapter`: detect pm (npm/pnpm/yarn from lockfile), pin node, detect runner (vitest/jest/mocha), invoke with a machine-readable reporter (`--reporter=json` / `--json`), parse into a stable canonical test-ID.
+- Note the TS-only bonus signals for the writeup: `tsc --noEmit` and eslint — verification dimensions Python benchmarks can't offer.
+
+**Learn.** The TS toolchain (lockfiles, workspaces, node version pinning); the *differing* JSON output shapes of vitest vs jest; why the core must never branch on language (`if lang == ...` in core = design smell).
+
+**Done-when.** Point the adapter at 2–3 real TS repos (one vitest, one jest, ideally one monorepo) and get a correct, **stable-across-runs** pass/fail map for named tests.
+
+**Pitfalls.** Test-ID instability (same test, different string between runs) silently corrupts FAIL_TO_PASS matching. Lock a canonical ID format now.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **A repo's `packageManager` field cannot be trusted blindly.** Real example hit live: `colinhacks/zod`'s `package.json` declares `"packageManager": "nub@0.8.3"` — not a real package manager (likely a maintainer joke/canary). Naively parsing it gives a manager name that crashes both your own detection *and* corepack/pnpm itself (`ERR_PNPM_OTHER_PM_EXPECTED`) if you invoke it directly. Fix: validate the parsed name against a known set (`{npm, pnpm, yarn}`) before trusting it; fall back to lockfile detection otherwise; and actively strip the field from the working copy's `package.json` before running install (`_sanitize_package_manager_field`), since corepack/pnpm will independently re-enforce the same bad field at invocation time even if your own detection ignored it.
+- **Root-project lifecycle scripts are a separate problem from dependency build scripts — don't conflate them.** zod's `package.json` also had a `"prepare": "nub exec --node husky"` script (git-hook setup, irrelevant to testing, and broken). The blunt fix (`--ignore-scripts` on install) also blocks *dependency* build scripts (esbuild, sharp, etc.) that tests may genuinely need to function. Correct fix: strip `prepare`/`preinstall`/`postinstall` from the working copy's root `package.json` yourself (`_sanitize_lifecycle_scripts`) — don't touch dependency scripts at all.
+- **pnpm 10+ blocks dependency build/postinstall scripts by default** (`ERR_PNPM_IGNORED_BUILDS`, e.g. for esbuild/sharp/@biomejs/biome) unless explicitly approved — this is a mainstream default, not repo-specific weirdness, and will recur on most modern pnpm repos with native deps. `pnpm approve-builds` has **no bulk/`--all` flag** (at least as of 10.12.1) — it's purely an interactive checklist; pressing Enter with nothing selected doesn't skip the decision, it explicitly *ignores every flagged package* and writes that into `pnpm-workspace.yaml`'s `ignoredBuiltDependencies`. Press `a` (toggle-all) before Enter.
+- **WSL2's IPv6 routing to the host can be silently broken while IPv4 works fine** — shows up as `curl`/`nvm install`/etc. hanging or stalling for ~30s before failing, even though DNS resolves and the eventual IPv4 connection succeeds instantly. Force IPv4 (`curl -4 ...`) as the fast diagnostic and fix; escalate to editing `/etc/gai.conf` if it recurs across tools that don't have a `-4` flag.
+- **Windows-side Node/npm can leak into WSL2's `PATH` via `/mnt/c/...`** if Node was only ever installed on the Windows side. This breaks reproducibility (which node runs depends on host PATH config, not your harness) and is slow (cross-filesystem exec). Fix: install Node natively inside WSL2 via `nvm`; confirm `which node`/`which npm` resolve under `~/.nvm/...` before trusting any test run.
+- **Vitest's `--reporter=json` does not reliably print to stdout across versions.** Some versions/configs (hit live against `trpc/trpc`) silently write to a file (`.vitest/json/output.json`) and print only a one-line confirmation to stdout instead of the JSON itself. Fix: always pass an explicit `--outputFile=vitest-results.json` and read from that file — exactly the same pattern already used for jest's `--outputFile`. Don't depend on stdout for either runner.
+- **`run_tests()` must validate its own output before handing it to the parser.** An empty/missing output file or empty stdout should raise immediately with `stderr` attached, not silently pass garbage to `parse_results` (which then fails with a confusing `JSONDecodeError` instead of the real cause). This is the same "distinguish infra failure from solve failure" principle Step 14 calls out for the model runner later — worth remembering there too.
+- **Monorepo support ended up living on the adapter instance, not the shared interface.** `TypeScriptAdapter.__init__` takes an optional `package_path` (defaults to `repo_path` — zero behavior change for single-package repos). Package manager and node version are always detected at `repo_path` (workspace-wide, one lockfile). Test runner detection tries `package_path` first and falls back to `repo_path` if the package declares no runner of its own (`_detect_test_runner_with_fallback`). `run_tests` executes with `cwd=package_path` so vitest/jest naturally scope to that package without needing pnpm/yarn `--filter` syntax. Deliberately did NOT add `package_path` to the shared `LanguageAdapter` interface — it's TS-specific instance state, keeping the four-method interface untouched for future languages.
+- **Real repos verified end-to-end, stable across repeated runs:**
+  - `colinhacks/zod` — pnpm, vitest, single-package: **5442/5455** passed.
+  - `typestack/class-validator` — npm, jest, single-package: **743/743** passed.
+  - `trpc/trpc` (`packages/server`) — pnpm, vitest, monorepo via the fallback path (the package itself declares no `test` script or vitest dependency): **114/114** passed.
+  - Mocha is covered only by a unit-test fixture (`test_parse_mocha`) — not yet verified against a live mocha repo. Worth doing before fully trusting that branch.
+- **Update from T6:** `run_tests` later gained an explicit `timeout: int = 300` parameter (on both the interface and `TypeScriptAdapter`) so the eval runner could enforce its own per-call timeout distinct from install — default value preserves this task's original behavior exactly, `pipeline/validate.py` needed no changes.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md` in this project, Steps 3–4). Explain first-principles as we go. Help me design a `LanguageAdapter` interface with exactly four methods (detect_environment, install, run_tests, parse_results) so the core never branches on language, then implement a `TypeScriptAdapter`: detect npm/pnpm/yarn, pin node, detect vitest/jest/mocha, run with a JSON reporter, and parse into a stable `{test_id: pass|fail}` map. I want to test it against 2–3 real TS repos and get identical results across runs. Show me the vitest vs jest JSON differences explicitly.
+
+---
+
+## T3 — GitHub miner  · Must (spine complete, now full-completion scope)  · ✅ Done  *(fallback: hand-pick more PRs)*
+
+**Goal.** A miner that, per repo, emits candidate tasks: `(repo, fixing_PR, linked_issue, base_commit)` where the PR closes an issue AND touches a test file — enough of them, across enough repos, that T9's cross-run pass@k stability stops depending on just 5 zod instances.
+
+**Why (first principles).** You need *real, human-accepted* fixes with tests. A merged PR that closes an issue and changes a test file is the raw material for a fail-to-pass task. Mining just automates *finding* candidates so your validator (T4) only judges promising ones. T9 already demonstrated concretely why this matters: with only 5 tasks, the model-level pass@k standard error is a sample-std-of-5-numbers — genuinely noisy no matter how many repeats you run. More tasks is the only fix for that specific noise source.
+
+**Build.**
+- Repo shortlist first (Step 5 criteria): active, strong test suite, standard runner, permissive license, clean "issue→fixing PR with test" pattern, fast build. Good starters beyond zod: `date-fns/date-fns`, `sindresorhus/*`, `trpc/trpc` (already proven adapter-compatible in T2).
+- Miner via GitHub GraphQL: merged PRs with `closes #N`/`fixes #N` linkage whose diff touches test files. Cache aggressively; respect rate limits.
+- Feed candidates straight into T4's already-built validator — no changes needed there.
+
+**Learn.** GitHub REST + GraphQL; rate limits, pagination; how issue↔PR linkage is represented; classifying "test file" per repo.
+
+**Done-when.** Run on at least 2 repos beyond zod; hand-verify a sample — each candidate really is an issue-closing PR that changed tests; validated instance count meaningfully above 5.
+
+**Pitfalls.** Rate limits will throttle you — use GraphQL + cache. Not every "closes #N" is a bug fix (some are features/refactors); that's fine, T4 filters hard. **If mining stalls or yields nothing clean, stop and hand-pick more PRs manually** (exactly how the current 5 zod instances were built), then move to T11 with what you have rather than blocking everything else on the miner.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **Built:** `pipeline/miner.py` (`mine_repo(repo, token, cache_dir, max_pages=6) -> list[Candidate]`) — a GitHub GraphQL miner using the `search(type: ISSUE, ...)` endpoint with `is:pr is:merged sort:created-desc` scoped to one repo, paginating up to `max_pages * 50` most-recently-created merged PRs. Each PR node pulls `closingIssuesReferences` (the real "closes #N" linkage GitHub tracks, not a body-text regex) and `files(first: 100)` in the *same* GraphQL round-trip — no separate per-PR REST call needed. A candidate survives the miner only if it has a non-empty `closingIssuesReferences` AND at least one touched file matches `gitplumbing.is_test_path`. Each `(repo, cursor)` page is cached to disk (`scratch/mining_cache/<repo>/<cursor>.json`) so a rerun with the same or smaller `max_pages` costs zero API calls. `scripts/mine_and_validate.py` drives it: mines `REPOS_TO_MINE`, skips any `(repo, pr_number)` already present in `datasets/instances.jsonl` or `datasets/rejections.json`, feeds the rest through T4's unmodified `validate_candidate`, and merges newly-validated instances into the existing dataset (existing instances are never re-validated). Requires a classic GitHub PAT with only the `public_repo` scope (read-only use in practice) in `GITHUB_TOKEN` — free, no billing, GraphQL is unusable unauthenticated at all.
+- **`is_test_path` (`pipeline/gitplumbing.py`) needed broadening before any of this worked.** The zod-only version (`.test.`, `.spec.`, `/tests/`, `/__tests__/`) matches zod/trpc's suffix convention but not `date-fns/date-fns`'s: date-fns colocates one bare `test.ts` (or `.tsx`/`.js`/`.jsx`/`.cjs`/`.mjs`) per source file in the same directory (e.g. `src/formatISO/test.ts`), a real, different, widely-used convention. Without this, date-fns mining found 125-of-300 scanned PRs with a genuine closing-issue link but **zero** candidates, because none of their changed files matched the old pattern — looked exactly like "this repo doesn't use that convention" until the raw file lists were inspected by hand. Fixed by adding a bare-basename check (`path.rsplit("/", 1)[-1] in {"test.ts", "test.tsx", "test.js", "test.jsx", "test.cjs", "test.mjs"}`) alongside the existing substring checks — purely additive, doesn't change matching for zod/trpc/class-validator.
+- **The single biggest real finding of this task: `TypeScriptAdapter` recorded `node_version` as metadata but never actually enforced it — every install/test subprocess always ran under whatever the ambient shell's default node happened to be.** This was invisible through T2/T4/T6 because the ambient default and the zod/class-validator instances' effective versions were always close enough not to matter. It broke outright once the ambient nvm default moved to a much newer Node (v24.21.0 during this session) and `trpc/trpc` — pinned to `22.18.0` via its own `.nvmrc` — hit a genuine cross-version undici/AbortSignal incompatibility (`RequestInit: Expected signal ("AbortSignal {}") to be an instance of AbortSignal`) that has nothing to do with any candidate's actual fix. Symptom before the fix: nearly every trpc candidate's green-gate rejected with a huge, suspicious block of unrelated test names all failing identically (a whole file, sometimes 20+ tests) — the tell that this is environment noise, not "the gold patch is genuinely incomplete," is that the failures span totally unrelated test files/features and the actual `gold_patch` diff never touches `package.json` or anything install-related. **Fixed for real, not worked around:** `LocalSandbox.run()` gained an `extra_env: dict[str, str] | None` parameter merged into the subprocess env; `TypeScriptAdapter` gained `_node_bin_dir(version)` (resolves — installing via `nvm install <version>` and `nvm exec <version> corepack enable` if not already present — the bin directory for that exact node version) and `_pinned_env(version)` (wraps it as a `PATH` override, cached per adapter instance so repeated `run_tests()` calls for flake-detection don't reinvoke nvm/corepack every time), threaded through every `install()`/`run_tests()` call. Enabling corepack per-version (not just once globally) matters — pnpm/yarn are corepack shims that live under `~/.nvm/versions/node/vX.Y.Z/bin/`, specific to that one node install, not shared across versions. Re-running the exact same trpc candidate before/after this fix is the clean before/after proof: before, green-gate rejected citing ~22 unrelated failing tests; after, the same candidate cleanly validated (or cleanly rejected for an *actual* content reason like "no target tests failing at base_commit").
+- **Real run, in order:** mining `date-fns/date-fns` (15 pages / ≤750 merged PRs scanned → 132 raw candidates) and `trpc/trpc` (15 pages → 69 raw candidates) after the two fixes above. `trpc/trpc`'s newest 6 attempted candidates (PRs #7477, #7469, #7464, #7434, #7390, #7370) **all validated on the first try** — strong confirmation the node-pinning fix was the real blocker, not a fluke. `date-fns/date-fns` validated 2 (PRs #3662, #3132) out of its capped 40 attempts; the rest of its raw-candidate pool skews into the repo's very old history (PRs closing single/double-digit-numbered issues from ~2015), where nearly every attempt failed identically on a genuinely dead upstream artifact — `https://registry.yarnpkg.com/@date-fns/date-fns-scripts/-/date-fns-scripts-*.tgz: 404 Not Found` — a real, unfixable-by-us case of registry/dependency decay for sufficiently old commits (exactly the kind of drift T11 exists to characterize, not something wrong with the miner or validator). One `npm ci` lockfile-mismatch rejection (missing platform-specific optional deps) hit a mid-history date-fns PR too — also genuine pre-existing repo-state messiness, not a validator bug.
+- **Hand-verified sample (both are genuine issue-closing bug fixes with a real regression test, not noise):** `date-fns__date-fns-3662` — problem statement is a real French-locale pluralization bug report ("Jeudi 29ème août" should be "Jeudi 29 août"); `fail_to_pass` includes a French-locale formatting test and a `format` test exercising the same "localize preprocessor" code path the gold patch touches. `trpc__trpc-7390` — problem statement is a real bug report that `httpBatchStreamLink`'s `AbortController` is created but its cleanup function is a no-op; gold patch adds the missing `ac.abort()` wiring in exactly the file/lines the report names; `fail_to_pass` is the one directly-relevant test (`httpBatchStreamLink - unsubscribe aborts fetch`).
+- **Final dataset: 13 validated instances across 3 repos** (5 `colinhacks/zod` + 2 `date-fns/date-fns` + 6 `trpc/trpc`), up from 5. `datasets/rejections.json` has 38 real rejections recorded (post-node-pinning-fix; the earlier ~49 rejections from the buggy pre-fix run were discarded/re-attempted, not left in the record, since most were environment-noise rather than genuine judgments).
+- **Done-when gate met, verified for real, twice:** (1) T3's own bar — ran on 2 repos beyond zod, hand-verified a sample, landed at 13 total (meaningfully above 5). (2) Re-ran T6's actual runner-level gold/empty gate (`scripts/run_gate.py`, not just the validator) against the full, current 13-instance dataset: **`GATE PASSED: 13 instances -- gold resolves all, empty resolves none.`** — every instance individually confirmed `[gold] resolved=True` / `[empty] resolved=False`, including all 8 newly-mined ones, proving the expanded dataset holds up through the same runner T9's stats will eventually consume.
+- **Known housekeeping debt, not part of this task but visible while working on it:** `docs/ts-bench-task-board.md` (this file), `CLAUDE.md`, and the other two `docs/*.md` files were untracked by git entirely before this session despite documenting T1–T9 as done — a prior session's step 5 ("commit after each meaningfully complete unit of work") was apparently skipped for a while. Also uncommitted: T9's actual code (`agent/loop.py`'s mock/random additions, `scripts/run_driver.py`'s `--repeats`, `pipeline/stats.py`, `scripts/compute_stats.py`, `tests/test_stats.py`) plus two 58MB raw run-output JSONL files under `results/` from T9's verification runs. This commit brings the docs (small, core, load-bearing files) under version control alongside T3's own changes; it deliberately leaves T9's code and the 116MB of `results/*.jsonl` alone rather than unilaterally deciding whether large raw run logs belong in git history — that's a real storage-policy call for whoever picks up T9's loose ends (gitignore `results/`? Git LFS? commit as-is?), not something to decide as a side effect of a T3 session.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Steps 5–6, and `claude/ts-bench-task-board.md`'s T3/T4 notes for what already exists). Explain first-principles. Help me pick 2–3 more clean TypeScript repos to mine beyond `colinhacks/zod` (criteria: strong tests, standard runner, permissive license, clear issue→PR→test pattern, fast build — `trpc/trpc` is already proven adapter-compatible from T2). Then build a GitHub GraphQL miner that finds merged PRs which close an issue AND modify a test file, with caching and rate-limit handling, outputting `(repo, pr, issue, base_commit)` candidates, and feed them through my existing T4 validator (`pipeline/validate.py` — no changes needed there). I have an OpenRouter key and can create a GitHub token — tell me what scopes I need. Goal: meaningfully more than 5 validated instances, across more than one repo.
+
+---
+
+## T4 — Task validator + gold/empty gate  · **Must — this is the heart** · ✅ Done
+
+**Goal.** Turn raw candidates into *verified* task instances — or reject them with a logged reason. This is where the credibility of the entire benchmark lives.
+
+**Why (first principles).** A task is valid only if it's *objectively solvable and objectively checkable*. Concretely: at `base_commit` the fix's tests genuinely **fail** (the bug is real and unsolved); with the human fix applied they genuinely **pass** (the fix is real). If either isn't true, the "task" is noise that produces meaningless scores. This gold/empty logic is what separates a benchmark from a pile of GitHub links.
+
+**Build.** Per candidate:
+1. Check out `base_commit`; strip later history + git remote (anti-leakage).
+2. Install deps via the adapter.
+3. Run the PR's added/changed tests → must **FAIL** (else no bug → reject).
+4. Apply gold patch → those tests must **PASS** (else fix incomplete/setup wrong → reject).
+5. Derive `FAIL_TO_PASS` (failed→passed) and `PASS_TO_PASS` (was passing, still passing — the regression guard).
+6. Emit a schema-valid instance, else record rejection reason.
+
+**Learn.** Git plumbing (checkout, apply, resetting test files, removing remotes); precise FAIL_TO_PASS vs PASS_TO_PASS definitions; detecting/quarantining flaky tests (run N times, keep only deterministic).
+
+**Done-when.** You have **5–10 rock-solid validated instances from one repo**, every one passing the gold-passes/empty-fails gate, plus a rejection log you understand.
+
+**Pitfalls.** Hidden nondeterminism lives here — a "sometimes fails" test pollutes the set. Be ruthless: when in doubt, reject.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **Anti-leakage isolation, done right, is `git archive` into a plain directory — not a stripped-down clone.** A mirror (`git clone --mirror`, one persistent copy per repo, fetched/reused across candidates) is the source of truth for diffs and commit metadata. Each *instance* is materialized fresh via `git --git-dir=<mirror> archive <commit> | tar -x -C <dest>` — a plain file tree with **no `.git` at all**, so there's structurally nothing for an agent to `git log`/`git fetch` its way through, not just something hidden by convention. `gold_patch`/`test_patch` are extracted from the mirror as plain unified diffs (`git diff <base> <head> -- <paths>`) and applied to the plain instance directory with POSIX `patch -p1`, which doesn't need a `.git` to exist.
+- **`git status` inside a materialized instance can lie to you.** If the instance directory happens to sit *inside* another tracked repo (e.g. under the ts-bench repo itself), git walks upward past the archive's missing `.git` and reports on the *outer* repo instead — printing a convincing "on branch main" that has nothing to do with the instance. The real proof an instance is git-free is `ls -la` showing no `.git` entry, never `git status`. Relatedly: `mirrors/`, `instances/`, and `scratch/` must be `.gitignore`d in the outer repo, or `git add -A` will try to commit hundreds of MB of cloned mirrors. (Also: a `printf '...' >> .gitignore` on a file with no trailing newline merges your first new line onto the existing last line — e.g. `.ruff_cache/mirrors/` instead of two separate patterns. Always `cat` after appending.)
+- **A merge commit's parent count tells you whether it's a squash merge (1 parent → parent is `base_commit`, the commit itself is `head_commit`) or a real merge commit (2 parents → first is base, second is head).** Always normalize whatever hash you're given through `git rev-parse` before trusting it as `base_commit`/`head_commit` — a short hash resolves fine *today*, but isn't guaranteed to stay unambiguous as the mirror grows, and reproducibility depends on the full 40-char SHA.
+- **`LocalSandbox`'s `COREPACK_ENABLE_PROJECT_SPEC=0`** (presumably set to dodge Corepack's interactive "about to download pnpm X, continue? [Y/n]" prompt) **actually makes Corepack ignore the project's pinned `packageManager` version entirely**, so pnpm runs whatever's globally installed — which then self-detects the mismatch against `package.json` and fails with `ERR_PNPM_BAD_PM_VERSION`. Fixed by setting `CI=1` instead: per Corepack's own docs, it only prompts "when standard input is a TTY and no CI environment is detected" — a `subprocess.run()` call has no TTY to begin with, so the original prompt worry barely applied in this context anyway.
+- **Monorepo test-scoping is genuinely fiddly, worse than T2's notes anticipated.** Passing file-path filters to `pnpm test` from the workspace root does **not** reliably scope vitest down to just those files when the root config spans multiple vitest "projects" (zod runs every file under both a `zod` project and a `compile-mode` project, plus a separate experimental typecheck pass) — the filter gets swamped rather than narrowing anything. And `packages/zod`'s own vitest config depends on a **root-level** `vitest.compile.config.ts`, so `cd packages/zod` before running breaks startup entirely (`Projects definition references a non-existing file`). The approach that actually works: run the **full suite from the repo root**, get the complete `{test_id: bool}` map back, and filter *that* by file path in Python — never try to get the test runner itself to scope down in a monorepo like this.
+- **The same logical test can appear as multiple dict keys** (once per vitest "project" it runs under), and different project variants can disagree with each other — in one observed case, the `compile-mode` variant of a test reported passing when the plain `zod` variant correctly reported failing, on the exact same source state, likely because `compile-mode` depends on a built artifact (`pnpm build`) that was never run (the same class of issue as `packages/treeshake`'s tests, which hard-fail with "run `pnpm build` first" if you never do). **Never assume all variants of a test agree** — derive `FAIL_TO_PASS`/`PASS_TO_PASS` purely from each key's own actual boolean across your N repeated runs, never from a single manually-observed console run. This is exactly why flaky-test detection (run N times, keep only deterministic outcomes) is load-bearing, not a nice-to-have.
+- **Some GitHub issue reporters include the actual fix — sometimes with a link to the fix branch — directly in the issue body.** Using that verbatim as `problem_statement` would hand the agent the answer. Added a blunt heading-based truncation (cut everything from `### Suggested fix` / `### Solution` / `### Fix` onward) in the issue-fetching helper, but this is a narrow heuristic tied to one repo's issue-template convention, not a general solution — **always read the final `problem_statement` by eye** before trusting it in a real `TaskInstance`.
+- **`TaskInstance.instance_id` uses the PR number** (`<org>__<repo>-<pr_number>`), **not the issue number** — easy to conflate since a candidate needs both (issue number for `problem_statement`, PR number for identity/`base_commit`/`gold_patch`).
+- **Result: 5/5 hand-picked zod candidates (PRs #6530, #6532, #6534, #6572, #6587) validated cleanly on the first full run of the finished validator, zero rejections.** Every instance's `fail_to_pass` set was derived from real parsed results, not assumption — one candidate (#6532) turned out to have 3 genuine `fail_to_pass` tests across 3 files even though a quick manual `grep` on console output only surfaced 1 of them, underscoring why deriving from data beats eyeballing logs. Dataset written to `datasets/instances.jsonl` (+ `datasets/rejections.json`, empty this run).
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Step 7 — the crucial one). Explain first-principles, no skipped steps. Help me build the task validator: for each candidate PR, check out base_commit, strip history+remote, install via my TypeScriptAdapter, confirm the PR's tests FAIL at base, apply the gold patch and confirm they PASS, then derive FAIL_TO_PASS and PASS_TO_PASS, and emit a schema-valid TaskInstance (or a logged rejection). Include flaky-test detection (run N times). Goal: 5–10 validated instances that each pass the gold-passes/empty-fails gate. Teach me the git plumbing as we go.
+
+---
+
+## T5 — Dataset packaging + Postgres  · Must (spine complete, now full-completion scope)
+
+**Goal.** Persist validated tasks in a standard, versioned, queryable form.
+
+**Why (first principles).** Tasks are your ground truth: they must be reproducible and shareable so others compare against the *exact same set*. Scores are only comparable against a fixed task set — "TS-Bench v0.1" must mean one exact set forever.
+
+**Build.** Export instances as JSONL / HuggingFace `datasets` with a version tag; a Postgres schema: `tasks`, `runs` (model/agent × config), `results` (per-task outcome), `models`. (Postgres is your home turf — lean on it.)
+- **Note (from T6): the `results` table's columns should mirror `harness/eval_result.py`'s `EvalResult`** — `status`, `resolved`, `fail_to_pass_results`, `pass_to_pass_results`, `patch_strategy`, `reset_paths`, `wall_clock_seconds`, `stdout_tail`, `stderr_tail`, `cost_usd`, `tokens_used`. That type didn't exist when this task was first scoped — treat it as the schema's starting point rather than designing columns from scratch.
+- **Note (from T9): the `results` table also needs a `repeat` column (integer, 0-indexed)** — `scripts/run_driver.py`'s `--repeats` flag writes one row per (model, instance, repeat) rather than one row per (model, instance), and pass@k/variance in `pipeline/stats.py` are computed by grouping rows on (model, instance_id) and counting how many of their `repeat` rows resolved.
+- **Note (from T11, once built): if T11's contamination metadata lands first, `tasks` should carry it** (PR merge date at minimum) so per-model contamination-risk queries are a join, not a recompute.
+
+**Learn.** HuggingFace datasets + versioning; relational modeling for eval results.
+
+**Done-when.** You can load the published dataset fresh and round-trip it into Postgres; the task set carries an immutable version identifier.
+
+**Pitfalls.** Not versioning the dataset. Without a fixed version, no two numbers are comparable.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Step 8, and the task board's T6/T9/T11 notes for the exact fields the `results`/`tasks` tables need to mirror). Explain first-principles. Help me (1) export my validated TaskInstances to versioned JSONL + a HuggingFace dataset tagged v0.1, and (2) design a Postgres schema (tasks, runs, results, models) with docker-compose for local Postgres, and a loader that round-trips the dataset in — `results` should mirror `EvalResult`'s fields plus the `repeat` column from T9, and `tasks` should carry any contamination metadata from T11 if that's already built. I'm strong in Postgres so go deep on the relational modeling for eval results.
+
+---
+
+## T6 — Eval runner + scoring  · Must · ✅ Done
+
+**Goal.** Orchestrate a full evaluation of one (task, agent-patch) pair and produce a scored, metadata-rich result — proven correct by the gold/empty gate *through the runner itself*.
+
+**Why (first principles).** This is the loop the whole benchmark exists to run. Every scoring subtlety (test tampering, non-applying patches, timeouts) lives here, so it must be airtight.
+
+**Build.** Behind a `Sandbox` interface (local-subprocess backend for v0.1; Docker later, T12). The loop:
+1. Spin the instance (repo @ base_commit, history/remote stripped).
+2. Present the agent the `problem_statement` + repo access.
+3. Collect the agent's patch (git diff).
+4. **Reset any test files the agent touched**, then apply the agent's patch.
+5. Apply *your* `test_patch` on top.
+6. Run FAIL_TO_PASS + PASS_TO_PASS under a strict timeout.
+7. Emit a structured result.
+Scoring: `resolved = all FAIL_TO_PASS pass AND all PASS_TO_PASS pass`; capture cost, tokens, wall-clock.
+
+**Learn.** Sandbox orchestration; patch-apply edge cases (fuzz, conflicts, malformed diffs); timeout/kill handling; per-run cost accounting.
+
+**Done-when.** Gold/empty gate **through the full runner**: gold patch resolves every task, empty patch resolves none. This proves the *runner* (not just the validator) is correct.
+
+**Pitfalls.** Forgetting step 4 (test reset) lets an agent "solve" by editing tests — a silent correctness hole. A non-applying diff must score *unresolved*, not crash the run. Capture cost from the start; retrofitting hurts.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **`Sandbox` ended up narrower than originally planned.** `LocalSandbox` is genuinely just "run a command with a real timeout." Materializing instances, applying patches, and resetting test files are all git/filesystem operations that live in `pipeline/gitplumbing.py`, never on the sandbox. This is the right call for the eventual Docker swap too (T12) — a Docker backend would still materialize files host-side and bind-mount them in, so only `Sandbox.run()`'s *implementation* needs to change later, never who owns file materialization. No `create`/`apply_patch`/`reset_paths`/`destroy` methods needed on the interface at all.
+- **No git-init baseline needed for the reset step.** Considered `git init`-ing a single-commit baseline inside each materialized instance so `reset_paths` could `git checkout --`. Unnecessary once you realize the persistent per-repo mirror (already built in T4) is right there: `git --git-dir=<mirror> show <base_commit>:<path>` pulls pristine content for any file directly from the mirror, no new git state needed inside the instance directory — which also preserves T4's "instance dir has zero `.git`" anti-leakage property instead of reopening it. `restore_paths` deletes the path entirely if it didn't exist at `base_commit` (the agent invented a new file).
+- **`tempfile.mkdtemp()`/`TemporaryDirectory()` already create the directory they return — but `gitplumbing.materialize_instance` refuses to run if its `dest` already exists** (a deliberate safety check from `validate.py`'s use case, where `dest` is a pre-computed path). Two "give me a fresh empty directory" idioms collide. Fix: get a unique parent from `mkdtemp`, then materialize into a not-yet-existing subdirectory of it (`tmp_root / "instance"`). Hit this twice — once in `eval_runner.py`, once while writing the Step 10 test file — worth remembering as a recurring pattern, not a one-off.
+- **`TypeScriptAdapter.run_tests`'s `test_ids` filter (`-t "|".join(test_ids)` for vitest) is incompatible with the eval runner's needs, and was deliberately never fixed.** `-t` filters by bare test name, but `parse_results` keys are `"{rel_path}::{name}"` — passing those into `-t` builds a pattern vitest can't match against anything. `evaluate()` never uses `test_ids`; it always runs the full suite and filters `FAIL_TO_PASS`/`PASS_TO_PASS` from the parsed dict in Python, the same pattern `validate.py` already used successfully. Consistent with (and an extension of) the T4 lesson that monorepo test-scoping via the runner itself is fragile — turns out test-ID scoping has the identical failure shape. `_build_test_cmd`'s `test_ids` branches are effectively dead code for now; leave them alone unless something later genuinely needs scoped runs.
+- **GNU `patch`'s default fuzz factor is already 2** — a naive "strict then fuzzy" two-attempt ladder that doesn't set `--fuzz` explicitly on both attempts is actually identical on both attempts. `try_apply_patch` uses `--fuzz=0` (strict) then `--fuzz=3` (fuzzy) so the ladder means something, and records which strategy succeeded — a model that only ever needs the fuzzy path may be producing systematically slightly-off diffs, a signal worth keeping once real agents exist.
+- **The critical coverage gap: the gold/empty gate structurally cannot exercise the test-file-reset/anti-cheat mechanism at all.** `validate.py` defines `gold_patch` as only ever touching non-test files (`non_test_files = [f for f in files if not git.is_test_path(f)]`), so `restore_paths` is called with an empty list on every gate run, gold or empty. The gate passing said nothing about whether the anti-cheat reset actually works — needed a separate direct test (materialize an instance, hand-tamper a real test file, call `restore_paths`, assert pristine content restored) to actually prove it. Worth remembering generally: a passing top-level gate can hide zero coverage on a safety-critical path if that path is structurally unreachable from the gate's own inputs.
+- **`EvalResult`/`EvalStatus` design:** one `EvalStatus` enum (`OK`, `PATCH_APPLY_FAILED`, `TEST_PATCH_APPLY_FAILED`, `TIMEOUT`, `INFRA_ERROR`) rather than splitting infra failures further — deliberately not gold-plated, revisit only if debugging actually needs finer buckets. `cost_usd`/`tokens_used` live directly on `EvalResult` as nullable fields (populated once T8 has a real agent to meter) rather than a separate wrapper type — avoids a retrofit later per Step 11's own warning, at the cost of some `None`-checking before there's a real agent.
+- **Environment friction working across chats (see the board's Environment note above for the full pattern):** the remote-devices bridge can't reach WSL2 paths, `net use` drive-mapping fails on `wsl.localhost`, Claude Code CLI hit a transient OAuth-refresh lock. Settled on Claude producing complete files as pasteable bash heredoc scripts. **(This is now moot for sessions run via Claude Code inside VS Code — see the Environment note's Sep 2026 update.)**
+- **Result:** `scripts/run_gate.py` — 5/5 zod instances resolve on the gold patch, 0/5 resolve on the empty patch, through the actual runner (not just the validator). `tests/test_harness_step10.py` — 9/9 passing: `try_apply_patch` (valid/malformed/empty), `diff_touched_paths` (real diff/garbage), `restore_paths` (tampered-file restore, newly-created-file deletion), `LocalSandbox` timeout (kills within ~1s of a 1s budget, not the full 5s), and one full `evaluate()` end-to-end malformed-patch case (`status=PATCH_APPLY_FAILED`, `resolved=False`, no crash).
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Steps 10–11). Explain first-principles. Help me build the eval runner behind a `Sandbox` interface (local-subprocess backend now, Docker later): spin instance at base_commit with history/remote stripped, hand the agent the problem, collect its git-diff patch, RESET any test files it touched, apply its patch, apply my test_patch, run FAIL_TO_PASS+PASS_TO_PASS under a timeout, and score resolved = all F2P pass AND all P2P pass — capturing cost/tokens/wall-clock. Critical gate: feeding the gold patch must resolve every task and an empty patch must resolve none, *through this runner*. Cover patch-apply failure modes.
+
+---
+
+## T7 — Reference agent scaffold  · Must · ✅ Done
+
+**Goal.** A minimal, as-deterministic-as-possible agent that takes (problem, repo) and returns a patch.
+
+**Why (first principles).** In a *model* leaderboard (Option A — start here), this scaffold is a **fixed instrument** held constant so score differences reflect the model, not the harness. Minimal is a feature: fewer moving parts, more attributable results.
+
+**Build.** A basic explore→edit→submit loop: read the problem, inspect relevant files, propose edits, emit a git diff. Study `mini-swe-agent` for the simplest credible design. Also write the **fairness contract** (Step 12): fixed scaffold, fixed prompt, fixed token + wall-clock budget, fixed workspace rules, fixed patch-extraction — put it in the README.
+- **Already built (T6): `harness/eval_runner.py`'s `evaluate(instance: TaskInstance, candidate_patch: str, mirrors_dir: Path) -> EvalResult` exists and needs no changes.** The agent's only job here is to produce a valid unified-diff string for `candidate_patch` — don't re-materialize a scoring instance yourself, `evaluate()` does that internally (and deliberately keeps it git-free).
+- **The agent needs its own, separate throwaway workspace to explore/edit in** — reuse `pipeline.gitplumbing.materialize_instance` for a fresh copy, but this time a plain `git init` inside it is fine (even useful): the anti-leakage "no `.git`" rule only matters for the instance `evaluate()` scores internally, not the agent's own disposable scratch copy. Once the agent's done, `git diff` in that copy is how you get `candidate_patch`. Also needs its own turn budget (token + wall-clock) separate from `evaluate()`'s `install_timeout`/`test_timeout` — that's part of the fairness contract, not the harness.
+
+**Learn.** Agent scaffolding fundamentals — the observe/act loop, tool use, context-window management, patch extraction, enforcing budgets.
+- The distinction between the agent's own workspace (can have git, thrown away after) and the scoring instance `evaluate()` builds internally (deliberately git-free) — two different materializations serving two different purposes.
+
+**Done-when.** On your validated tasks the reference agent *sometimes* solves and *sometimes* fails. A scaffold scoring 0% or 100% signals a broken harness or trivial/impossible tasks.
+
+**Pitfalls.** Over-engineering the agent. In Option A it's a constant, not the star — keep it simple and stable.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **Built:** `docs/fairness_contract.md` (5 clauses: scaffold, prompt, budget — 40 turns / 900s, workspace, patch-extraction); `agent/workspace.py` (`agent_workspace()` context manager — reuses `materialize_instance`, `git init`s the copy, yields the path, always `shutil.rmtree`s on exit; `extract_patch()` runs `git diff --no-color HEAD`); `agent/prompts.py` (fixed `SYSTEM_PROMPT` + `SUBMIT_COMMAND = "echo TSBENCH_DONE"`); `agent/loop.py` (`run_agent()` — plain-text one-command-per-turn protocol via `litellm.completion()`, deliberately not using any provider's tool-calling API so the exact same request shape works against every LiteLLM-reachable model, hosted or local — that's fairness contract clause 1, not a simplicity preference).
+- **Multi-provider support:** `_resolve_api_key(model)` only requires `OPENROUTER_API_KEY` when `model.startswith("openrouter/")` — local providers like `ollama_chat/<model>` need no key. `temperature=0` throughout ("as deterministic as the provider allows — a fixed instrument, not the star").
+- **Local model tested: `qwen2.5-coder:14b` via Ollama on WSL2 (RTX 5060 Ti, 16GB VRAM), against real validated zod instances.** Three real failure modes surfaced and were fixed at the scaffold level (all changes apply identically to every model, so none of them compromise clause 1):
+  1. **Empty-diff submit.** A model can emit the submit command on turn 1 with zero exploration and zero changes — an empty patch that can never resolve anything, a non-attempt rather than a genuine (even if wrong) fix attempt. Fix: the submit command is only honored if `extract_patch(workspace)` is non-empty at that point; otherwise the model gets an observation telling it to make changes first and the loop continues.
+  2. **Exact-repeat loops under greedy decoding.** With `temperature=0`, model output is a pure function of input — if the conversation history becomes periodic (same command, same rejected-submit, same command again), the model can fall into an exact repeating cycle and never escape, because a static text nudge just becomes one more fixed token sequence folded into the repeating prefix rather than something that "breaks" it. Fix: track the last non-submit command issued (persisting across intervening rejected-submit attempts, since those don't change repo state); a first repeat gets a pointed nudge appended to its observation; a 3rd consecutive identical command (`STUCK_REPEAT_LIMIT`) ends the run immediately (`submitted=False`) instead of burning the rest of the turn/wall-clock budget on a run that's provably stuck. A run that ends this way is distinguishable afterward from one that genuinely exhausted its budget: `turns_used < max_turns` and `submitted=False` together.
+  3. **Provider portability bugs, only surfaced once testing moved from local Ollama to OpenRouter:** (a) some providers (hit live: Nex AGI via OpenRouter) reject a message list that opens with only a `system` role and no `user` role ("No user query found in messages") — fixed by making the loop's opening message `role="user"` instead of `"system"` (it's the actual task instruction anyway, so this is also more semantically correct); (b) some providers (hit live: Cohere via OpenRouter) reject a later message with empty content ("must have non-empty content or tool calls") — a model can return a genuinely empty completion on some turn, and storing that verbatim then resending it next turn breaks strict providers. Fixed by storing `reply_text or "(no output)"` instead of the raw (possibly empty) string.
+  4. Also disabled litellm's automatic retries (`num_retries=0`) after a hung request produced a long, confusing stream of repeated `Provider List: ...` log lines with no forward progress — now a failed/stalled request surfaces its real exception immediately instead of retrying silently.
+- **None of the above are "make the model smarter" fixes — they're scaffold robustness/portability fixes**, consistent with the stated philosophy that a weak model should be allowed to fail honestly rather than be rescued.
+- **The blocker that actually unlocked genuine runs: `agent/loop.py`'s `litellm.completion()` call had no `max_tokens` cap.** Against real API-backed models this let a single turn's completion run unbounded, which manifested as runs that hung or burned the entire wall-clock budget without ever reaching a submit decision — indistinguishable at first glance from a model that was simply incapable. Adding `max_tokens=1024` immediately unblocked clean, fast, complete turn sequences against a real paid model. This was a scaffold bug, not a model-capability finding — worth remembering as the first thing to check if a model "never finishes."
+- **OpenRouter free-tier (`:free` models) reality check, as of mid-September 2026: genuinely unreliable for this kind of testing, independent of anything in this codebase.** Three different `:free` models were tried on OpenRouter specifically to get a stronger model's genuine attempt, and each hit a real, current infra wall: `nex-agi/nex-n2.5-pro:free` (brand-new, released Sept 8) stalled indefinitely mid-response (hung inside a single HTTP read, never a clean error, until manually interrupted); `poolside/laguna-s-2.1:free` returned an explicit "temporarily rate-limited upstream — shared pool" 429 even after waiting; `cohere/north-mini-code:free` hit an explicit, documented 15-requests/minute shared-capacity 429. None of this is a scaffold bug — it's free-tier capacity contention that varies hour to hour.
+- **Resolution: switched to a cheap pay-per-token Anthropic model, `anthropic/claude-haiku-4-5-20251001` (no shared free pool), and got three clean, real runs against the validated zod instances — this is what finally satisfied the done-when gate:**
+  1. **zod-6530 — clean fail, no attempt.** Thorough exploration, no edit ever made, budget exhausted. A legitimate "model couldn't find a fix in budget" outcome, not a scaffold bug.
+  2. **zod-6587 — clean partial fail, real attempt.** A genuine, small, targeted, non-destructive 2-hunk diff to `packages/zod/src/v4/core/schemas.ts` (`handlePropertyResult`'s undefined-handling condition + a `$ZodPrefaultInternals` interface tweak). Scoring: `Resolved: False`, but 1 of 4 real target FAIL_TO_PASS tests now passes (the `mini` schema path); the other 3 (the `classic` schema path) still fail. Zero PASS_TO_PASS regressions (confirmed via `grep -c ": False"` on the full PASS_TO_PASS dump → `0`).
+  3. **zod-6572 — genuine solve.** A real, targeted 2-hunk diff to `packages/zod/src/v4/core/memoizer.ts` removing a stale single-entry "last context" cache (`lastCtx`/`lastBucket`) that could serve a wrong bucket across parse contexts that happened to compare equal, replacing it with always calling `bucketFor(state, inst)` fresh. Scoring: `Status: ok`, `Resolved: True`, single FAIL_TO_PASS target (`cyclic-data.test.ts::a finished parse pins nothing on the schema`) passes, and the (enormous, thousands-of-entries) PASS_TO_PASS dict shows zero regressions.
+  - **Harness-reading footnote from this round:** the FAIL_TO_PASS/PASS_TO_PASS dicts can contain duplicate entries for the same logical test under two key formats — a human-readable resolved name and a raw vitest-templated name still containing a literal `%s` placeholder (an artifact of parameterized test titles being captured before substitution). Only the human-readable keys represent real distinct tests; the `%s`-templated duplicates should be disregarded when counting targets.
+- **Done-when gate met:** across the three anthropic/claude-haiku-4-5-20251001 runs above, the reference agent produced a clean fail, a clean partial-fail-with-real-attempt, and a genuine solve — "sometimes solves, sometimes fails," ruling out both a broken harness (always 0%) and trivially easy tasks (always 100%). The scaffold itself was never the failure mode in any of the three; each result reflects real model behavior against real, validated tasks.
+- **Tooling that remains useful going forward:** `scripts/run_agent_once.py <model> <wall_clock_budget_s> <instance_index_or_id>` runs one instance and saves the patch + full transcript to `scratch/`; `scripts/show_transcript_summary.py` prints a compact one-line-per-turn view of a saved transcript; `scripts/score_saved_patch.py <patch_file> <instance_index_or_id>` re-scores a saved patch through `evaluate()` without re-running the agent.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Steps 12–13). Explain first-principles. Help me (1) write the fairness contract (fixed scaffold/prompt/budget/workspace/patch-extraction) for a MODEL leaderboard, and (2) build a minimal reference agent: an explore→edit→submit loop that reads the problem_statement, inspects files, proposes edits, and emits a git diff — modeled on mini-swe-agent's simplicity. The agent needs its own throwaway workspace to edit in (separate from the git-free instance `harness/eval_runner.py`'s `evaluate()` builds internally for scoring) — reuse `pipeline.gitplumbing.materialize_instance` for that copy, `git init` it since this one doesn't need to stay git-free, and `git diff` it once the agent's done to get the patch string. Feed that patch straight into `evaluate(instance, patch, mirrors_dir)` — already built and tested in T6, no changes needed there. Keep the agent deterministic and small. I want it to sometimes-solve/sometimes-fail on my validated tasks.
+
+---
+
+## T8 — Model runner via LiteLLM (OpenRouter + mock)  · Must · ✅ Done
+
+**Goal.** Swap models behind one uniform interface, with budgets, retries, and cost logging — plus a deterministic mock "model" so the full loop runs with zero keys.
+
+**Why (first principles).** "Vary only the model" must be a *config* change, not a code change — that's exactly what a model gateway gives you. The mock lets you prove the entire harness end-to-end before spending a cent, and cleanly separates "agent failed to solve" from "infra failed to run."
+
+**Build.** A runner driving the reference agent via LiteLLM against any OpenRouter model (Kimi, Qwen, DeepSeek, Claude, GPT via one key); enforce token + wall-clock budgets; log cost/tokens; handle rate limits + retries. Add a `MockModel` that returns canned/gold-ish patches for pipeline testing.
+- **Note (from T6): `harness/eval_result.py`'s `EvalResult` already has nullable `cost_usd`/`tokens_used` fields** — this step just needs to populate them from what LiteLLM reports per call, no new schema.
+
+**Learn.** LiteLLM in depth; OpenRouter model routing; provider quirks (tool-use formats, context limits); cost control.
+
+**Done-when.** Same tasks run across 3–4 OpenRouter models with identical scaffold/budget produce comparable, logged results; the mock runs the full loop offline.
+
+**Pitfalls.** Silent budget/rate-limit failures scoring as "unresolved" skew a model down. Distinguish infra failure from solve failure explicitly.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **Build order that worked, in sequence:** (1) a narrow rate-limit retry policy on top of `litellm.completion()`; (2) populating `EvalResult.cost_usd`/`tokens_used` from LiteLLM's per-call response metadata; (3) a deterministic `MockModel` seam so the whole agent→harness loop runs offline with zero keys and zero spend; (4) the infra-failure-vs-solve-failure split in `harness/driver.py` (wraps `EvalStatus.INFRA_ERROR` around anything that blew up before a patch was even produced — auth errors, model-not-found errors, provider errors — so a billing/config problem is never mis-scored as "the model failed to fix the bug"); (5) `scripts/run_driver.py`, a multi-model CLI (`--models a,b,c --instances ... --out results.jsonl`) that's resumable: it reads any existing output JSONL first and skips `(model, instance_id)` pairs already recorded, so a rerun after a fix only retries what actually needs retrying and never duplicates or loses prior records. All of this was proven against `MockModel` first, exactly per the done-when gate, before spending anything real.
+- **LiteLLM will not reliably auto-detect a bare model string's provider.** `claude-3-5-haiku-20241022` (no prefix) raised `litellm.BadRequestError: LLM Provider NOT provided`. Always pass the explicit `anthropic/<model>` form — provider-inference on bare strings isn't something to depend on.
+- **LiteLLM auto-loads a `.env` from the current working directory** (`litellm/__init__.py` calls `_dotenv.load_dotenv()` on import) — the simplest, most correctly-scoped way to make `ANTHROPIC_API_KEY` (and later, other provider keys) visible to the process is a project-root `.env` file (`chmod 600`), not editing `~/.bashrc`. A stray `env | grep` showing the key set in one shell doesn't mean a fresh process/shell will see it — verify inside the actual Python process (`os.environ`), not just the interactive shell.
+- **A dated Anthropic model snapshot can be retired outright, and LiteLLM will pass that straight through as a genuine `litellm.NotFoundError`/`AnthropicException: not_found_error` — not a config bug.** Guessing a rolling alias (`-latest`) didn't work either (`model: claude-3-5-haiku-latest` also came back `not_found_error` — that suffix pattern isn't universal across Anthropic's model lines). **The reliable fix: query `GET https://api.anthropic.com/v1/models` directly with the account's key** — it returns the exact, currently-valid model IDs for that account, no guessing. That's how `claude-haiku-4-5-20251001` was found as the account's current Haiku model (the account's full list, as of Sept 2026, also included `claude-sonnet-5`, `claude-opus-5`, `claude-opus-4-8/4-7/4-6`, `claude-sonnet-4-6`, `claude-opus-4-5-20251101`, and `claude-sonnet-4-5-20250929`).
+- **OpenRouter free-tier capability gap (already surfacing in T7) made a real-money smoke test necessary for T8 too:** free-tier models weren't capable enough to produce meaningful cost/token data worth logging, so real-model verification for T8 went straight to paid Anthropic API calls instead of OpenRouter.
+- **Real-model results (`results/real_smoke.jsonl`), against the validated zod instances:**
+  - `anthropic/claude-sonnet-4-5-20250929` — 2/2 calls succeeded with real cost/token capture: `zod-6530` → `status=ok, resolved=False, cost_usd=1.2118..., tokens_used=386644`; `zod-6587` → `status=ok, resolved=False, cost_usd=1.672461, tokens_used=540299`. Both `resolved=False` is a legitimate result (the model's patch applied but didn't flip the target FAIL_TO_PASS tests) — proof the harness measures real capability, not a bug.
+  - `anthropic/claude-haiku-4-5-20251001` — `zod-6530` → `status=ok, resolved=False, cost=0.51015`; `zod-6587` → ran out of Anthropic credit balance mid-run, raising `litellm.BadRequestError: invalid_request_error — "Your credit balance is too low..."`, and the driver correctly recorded this as `status=infra_error` rather than crashing or scoring it as an unresolved solve attempt. **This is the single clearest live proof of the pitfall this task calls out**: a real billing failure landed exactly where it should — quarantined from the "did the model solve it" signal — instead of silently deflating the model's score.
+  - Total real spend across the whole T8 verification: ≈$3.39 of a $5 Anthropic credit purchase, at which point the account was intentionally not topped up further — 3 successful real-money calls plus one correctly-classified billing failure was judged sufficient evidence; further real-model runs (larger instance counts, more models) should go back through `MockModel` (free, deterministic) unless/until there's a specific reason to spend real money again.
+- **Done-when gate met in two parts:** offline — the full agent→harness loop runs end-to-end against `MockModel` with zero keys and zero cost; online — 2 real Anthropic models produced comparable, logged results (cost + tokens) under the identical scaffold/budget, and a genuine infra failure (billing) was distinguished from a genuine solve failure, exactly as the pitfall demanded.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Step 14). Explain first-principles. Help me build a LiteLLM-based model runner that drives my reference agent against OpenRouter models via one key, enforcing token + wall-clock budgets, logging cost/tokens (populating the `cost_usd`/`tokens_used` fields already on `EvalResult` from T6), and retrying on rate limits — with a clear split between "agent failed to solve" and "infra failed to run." Also add a deterministic MockModel so I can run the whole harness offline before spending anything. I have an OpenRouter key.
+
+---
+
+## T9 — First results: pass@k, variance, cost  · Must · ✅ Done (on MockModel)
+
+**Goal.** Your first *honest* scores: resolved % + pass@k + variance + cost, per model.
+
+**Why (first principles).** LLMs are stochastic; a single run per task is a coin flip reported as a fact. Running each task k times and reporting pass@k (and variance) is the difference between a result and an anecdote.
+
+**Build.** Run each task k times per model; compute resolved %, pass@k, variance, total cost; write structured results to Postgres (or a results JSON if you skipped T5).
+
+**Learn.** pass@k; how stochasticity inflates/deflates single-run numbers; honest statistical reporting.
+
+**Done-when.** Re-running the whole matrix reproduces the same ranking within stated variance.
+
+**Pitfalls.** Reporting k=1 numbers as if stable — anyone who knows evals spots it instantly.
+
+**Budget note (as of Sep 13 2026): real Anthropic API credits ($5) are fully exhausted after the T8 real-model smoke test, and are not being topped up right now.** T9 was built and run entirely against `MockModel` for this pass — no OpenRouter/paid models. Running the same matrix against real paid models is now step 7 of the "Recommended order from here" above — after T3/T11/T5/T12/T13/T14/T15, not before.
+
+**Notes from the actual build (for next time / a fresh chat hitting the same things):**
+- **The randomness knob reuses T8's two already-gate-tested `MockModel` outcomes instead of inventing a third patch strategy.** `agent/loop.py`'s `_run_mock_agent` gained a `"mock/random:<p>"` variant (`p` parsed straight out of the model string, e.g. `mock/random:0.3`): it flips a `p`-weighted coin (`random.random() < p`) and then does exactly what `"mock/gold"` does on heads (applies the real gold patch → guaranteed resolve) or exactly what `"mock/empty"` does on tails (no changes → guaranteed non-resolve). Because both underlying outcomes were already proven correct by T6/T8's own gates, a run against `mock/random:<p>` is by construction a genuine, independent Bernoulli(p) trial — no new patch-generation logic to get subtly wrong.
+- **`scripts/run_driver.py` gained a `--repeats N` flag** and its resumability key changed from `(model, instance_id)` to `(model, instance_id, repeat)` — each row in the output JSONL now also carries a `repeat` field (0-indexed). Backward compatible: `--repeats` defaults to 1, and a missing `repeat` field on an old (pre-T9) JSONL row is treated as `0` rather than crashing.
+- **`pipeline/stats.py`:** `pass_at_k(n, c, k)` is the exact unbiased Codex/HumanEval estimator (`1 - C(n-c,k)/C(n,k)`, computed as a product of ratios to dodge factorial overflow); `bootstrap_pass_at_k` resamples a task's n outcomes with replacement to get that estimator's own sampling std; `compute_model_stats` groups a repeats-JSONL by `(model, instance_id)`, computes resolved rate + pass@k + bootstrap std per task, then aggregates to a per-model resolved rate (with binomial SE) and a mean pass@k across tasks (with SE = sample-std-of-per-task-pass@k / sqrt(num_tasks)). `scripts/compute_stats.py` is the CLI that prints the summary table and can dump the full per-task breakdown to JSON.
+- **Gated by `tests/test_stats.py`** (5 hand-derived cases, e.g. `pass_at_k(n=5, c=2, k=2) == 0.7` via `C(3,2)/C(5,2)`) before trusting the aggregation code on real data — consistent with the board's "never cross a gate on hope" rule applying to the *statistics* pipeline too, not just the harness.
+- **Real run against `mock/random:0.3` and `mock/random:0.7`, 5 validated zod instances, 10 repeats each (100 evaluate() calls per model, 200 total, $0 cost throughout as expected):** every one of 200 calls returned `status=ok` (zero infra errors — expected, since `MockModel` never touches a real provider). Hand-verified the pipeline's own arithmetic against the raw per-task counts it printed: e.g. run 1's `mock/random:0.3` resolved 18/50 total attempts → 36.0% exactly as printed; its `zod-6530` task (n=10, c=5) gave `pass@5 = 1 - C(5,5)/C(10,5) = 1 - 1/252 = 0.996` exactly as printed; the model-level `mean_pass_at_k_stderr` (0.017) reproduces exactly from the 5 per-task pass@5 values via sample-std/√5. The stats code is correct, not just plausible-looking.
+- **Reproducibility check (the actual done-when gate): two independent 10-repeat runs, fresh random draws each time.** Ranking reproduced perfectly both times — `mock/random:0.7` outranked `mock/random:0.3` in run 1 (72.0% vs 36.0% resolved, pass@5 0.999 vs 0.944) and again in run 2 (84.0% vs 30.0% resolved, pass@5 1.000 vs 0.833). The stronger model's pass@5 was tight and stable across both runs (0.999→1.000, stderr ≤0.001) since at p=0.7, n=10, k=5 almost every task is saturated near 1.0 regardless of which 10 coin flips you happen to draw. The weaker model's pass@5 moved more between runs (0.944±0.017 → 0.833±0.092) — expected, and the *right* thing for the pipeline to report honestly rather than hide: with only **5 validated tasks**, `mean_pass_at_k_stderr` is itself a sample standard deviation of just 5 numbers divided by √5, which is a noisy estimate of its own true variance. **More repeats per task tightens each task's own pass@k estimate but does nothing for this specific noise source, which is driven by task *count*, not repeat count** — the fix is more validated instances, which is exactly why T3 (grow the dataset) and T11 (audit it) come immediately next in the recommended order, ahead of spending real money on real models. Recorded here rather than treated as a bug because it's exactly the kind of small-sample honesty this task exists to surface, not paper over.
+- **Files added/changed:** `agent/loop.py` (`_run_mock_agent`, +`mock/random:<p>` variant), `scripts/run_driver.py` (+`--repeats`), `pipeline/stats.py` (new), `scripts/compute_stats.py` (new), `tests/test_stats.py` (new, 5/5 passing).
+- **Done-when gate met:** re-running the whole matrix (fresh `random.random()` draws, no seed) reproduced the same model ranking both times, and the pass@k/variance numbers themselves were independently verified correct by hand against the raw per-task counts — not just "the script ran without crashing." **Real top-model numbers remain outstanding by design** — see the Budget note above and step 7 of the recommended order.
+
+**▶ Starter prompt (historical — this task is done on MockModel; revisit only for the real-model run at step 7 of the recommended order):**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Step 15, and the task board's T9 notes for what's already built — `pipeline/stats.py`, `scripts/compute_stats.py`, `mock/random:<p>`, `--repeats`). I've finished building and validating the pass@k/variance pipeline against MockModel, and I've since done T3 (more instances)/T11 (rigor)/T5/T12/T13/T14/T15. I've now budgeted $X for real API spend — help me pick which real models to run (mixing OpenRouter + direct Anthropic as needed), run the existing `scripts/run_driver.py --repeats k` matrix against them (through `DockerSandbox` from T12 if that's done), and sanity-check the resulting real numbers the same way we hand-verified the mock ones.
+
+---
+
+## T10 — Leaderboard page + methodology writeup  · Must (spine complete, now full-completion scope) — build last, with real numbers
+
+**Goal.** A public page ranking models by resolved % (with cost, date, cutoff), plus the writeup that makes the whole thing legible and reproducible.
+
+**Why (first principles).** The leaderboard is the shareable surface — but it's a *view* over rigorous data, not the project. In eval work the **methodology is the contribution**: it's what gets cited and what a hiring manager actually reads. And reproducibility by a stranger is the ultimate credibility test.
+
+**Build.** Next.js on Vercel reading results (v0 can be a static page from a results JSON). A writeup covering: task construction, the fairness contract, the gold/empty gate, contamination posture (T11), pass@k, and step-by-step reproduction. Publish the versioned dataset on HuggingFace.
+- **Note: this is deliberately the last task in the recommended order.** Building it against `MockModel` numbers now would mean rebuilding it once real numbers exist anyway — better to let T3/T11/T5/T12/T13/T14/T15 and the real-model run land first, then build this once against final data.
+
+**Learn.** Minimal data-driven frontend; presenting results honestly (show cost + variance, not just rank); technical writing for evals.
+
+**Done-when.** A competent stranger can reproduce a leaderboard number using only your writeup + published dataset + harness.
+
+**Pitfalls.** Letting UI polish eat the work rigor needs, and burying limitations. Ugly-but-honest beats pretty-but-unverified; state limits up front — it reads as rigor.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`, Steps 21–22, and the task board's T3/T9/T11 notes for the real dataset size, pass@k methodology, and contamination posture to describe accurately). Explain first-principles. Help me (1) build a dead-simple leaderboard (static page generated from my results JSON, or Next.js on Vercel) showing rank / resolved-% / cost / date / model-cutoff + variance, and (2) write the methodology writeup: task construction, fairness contract, gold/empty gate, contamination posture, pass@k, and exact reproduction steps. Then publish the v0.1 dataset to HuggingFace. Keep it honest — limitations up front.
+
+---
+
+## T11 — Rigor hardening: contamination controls, flakiness/reproducibility audit  · Must (full-completion scope)
+
+**Goal.** Make the growing dataset (from T3) trustworthy at scale — every instance has documented contamination risk (how plausible it is a given model already saw this exact fix during training), is provably non-flaky, and the whole validated set can be re-verified on demand to catch drift over time.
+
+**Why (first principles).** A benchmark's credibility rests entirely on task integrity. T4's original 5 instances got individual human eyeballing; T3 mining more automatically means less per-instance manual review, so trust has to come from machine-checked guarantees instead. Three distinct risks, each needing its own control: contamination (a model memorized the exact merged fix, silently inflating its score — impossible to fully rule out, but disclosable and estimable from PR dates vs. model knowledge cutoffs); flakiness (an instance's FAIL_TO_PASS/PASS_TO_PASS split was only ever confirmed once, at validation time, and could have been a lucky/unlucky run); and drift (dependency versions move on, and an instance that passed the gold/empty gate in September can silently stop passing it in December for reasons that have nothing to do with any agent).
+
+**Build.**
+- **Contamination metadata:** record each instance's PR merge date (and ideally first-public-appearance date) directly alongside the `TaskInstance` (either a new field or a sidecar record keyed by `instance_id`); add a helper that flags an instance as higher-risk for a given model once that model's public knowledge cutoff postdates the merge date by less than some margin. This is a *disclosure* mechanism, not a filter — the goal is an honest per-instance/per-model risk label for the eventual T10 writeup, not pretending contamination can be eliminated.
+- **Flakiness re-audit:** a standalone script that re-runs the gold/empty gate (same logic T4 already has, same "run N times" determinism check) against the *entire current dataset* on demand — not just at initial validation — and quarantines (flags, doesn't silently drop) any instance whose result is no longer deterministic.
+- **Reproducibility audit:** on-demand (or scheduled) re-materialization of every instance from its mirror, reconfirming gold-resolves/empty-fails still holds. Catches the class of failure T2's notes already flagged as a real risk — an untracked transitive dependency changing behavior out from under a previously-valid instance.
+- Document methodology + current findings as a "Rigor" section, feeding directly into T10's writeup later.
+
+**Learn.** Eval contamination as a field-wide open problem (how SWE-bench and similar benchmarks handle and disclose it, since none of them "solve" it either); why re-validation over the dataset's lifetime — not just at creation time — matters for anything meant to be a stable, long-lived benchmark.
+
+**Done-when.** Running the audit script against the current dataset produces a clean report (or clearly quarantines the instances that fail) and every instance carries contamination metadata.
+
+**Pitfalls.** Treating contamination as something you can fully solve — it isn't; the honest deliverable is a documented, estimated risk per instance/model, not a guarantee. Don't over-promise in the writeup later.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`'s Stage F reference and the task board's T3/T4/T9 notes — T4 already has flaky-test detection at initial-validation time, T9 flagged small-dataset variance as a real limitation this task addresses from a different angle). Explain first-principles. Help me build three things against my (now larger, post-T3) validated dataset: (1) contamination metadata — PR merge date per instance, plus a helper flagging an instance as high-risk for a given model once that model's public knowledge cutoff postdates the merge by less than some margin; (2) a standalone flakiness re-audit script that re-runs the gold/empty gate against the whole current dataset on demand and quarantines any instance that's no longer deterministic; (3) a reproducibility audit that re-materializes every instance from its mirror and reconfirms the gate still passes, to catch dependency drift over time. I want a clean audit report I can point to in the eventual leaderboard writeup.
+
+---
+
+## T12 — Docker layered sandbox  · Must (full-completion scope)
+
+**Goal.** Replace the local-subprocess `Sandbox` with a Docker-based one using layered images (base OS+Node → per-repo dependency layer → per-instance file layer), without changing anything above the `Sandbox` interface.
+
+**Why (first principles).** Local subprocess execution shares your host's global state (globally-installed corepack/pnpm versions, whatever's cached in `~/.npm`, host OS quirks) — real container isolation is what makes a result reproducible by a stranger on a different machine, which is the whole point of a benchmark. This was deliberately deferred behind the `Sandbox` seam back in T6 specifically so it could be a drop-in now, and it directly attacks a cost T9 already measured: `evaluate()` currently reinstalls dependencies from scratch on *every single call*, which is what made even a modest 200-call MockModel matrix a real wall-clock cost with zero API spend involved.
+
+**Build.**
+- Base image: pinned OS + Node version(s) + package managers.
+- Per-repo layer: that repo's lockfile-driven dependency install, built once and reused across every instance/repeat of that repo — the direct fix for the install-cost problem above.
+- Per-instance layer: the specific `base_commit`'s file tree materialized on top of the repo layer.
+- A new `DockerSandbox` implementing the exact same `Sandbox.run()` interface `LocalSandbox` already implements — a swap-in, not a rewrite of anything above it.
+- Re-run T6's own done-when check (gold/empty gate) through `DockerSandbox` to prove behavioral parity with `LocalSandbox`.
+
+**Learn.** Docker layer caching mechanics and cache invalidation; why install-layer caching specifically matters once you're running k repeats × many models (T9's exact pain point, quantified).
+
+**Done-when.** Gold/empty gate passes identically through `DockerSandbox`; repeated `evaluate()` calls against the same repo are measurably faster than `LocalSandbox`'s from-scratch installs (compare wall-clock, don't assume).
+
+**Pitfalls.** Docker image bloat or slow build steps can eat the exact speed win layering is supposed to buy — measure before/after, don't take the caching benefit on faith.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`'s Step 9 reference and the task board's T6 notes — `Sandbox.run()` is intentionally narrow, just "run a command with a real timeout," with all git/file materialization living in `pipeline/gitplumbing.py` outside the sandbox, specifically so this swap would be clean). Explain first-principles. Help me build a `DockerSandbox` with three image layers — base OS+Node, a per-repo dependency-install layer (cached and reused across instances/repeats of that repo, since `evaluate()` currently reinstalls from scratch every call per T9's notes), and a per-instance file layer — implementing the same `Sandbox.run()` interface `LocalSandbox` already satisfies. I want to re-run the T6 gold/empty gate through it to prove parity, and measure the actual wall-clock improvement on repeated runs against the same repo.
+
+---
+
+## T13 — `PythonAdapter`  · Must (full-completion scope)
+
+**Goal.** A second `LanguageAdapter` implementation, proving the four-method seam from T2 generalizes beyond TypeScript.
+
+**Why (first principles).** This is the real test of T2's design bet. If `PythonAdapter` is a clean drop-in with zero changes to `pipeline`/`harness`/`agent` core code, the seam was designed right. If it isn't — if you find yourself wanting an `if language == "python"` anywhere above the adapter layer — that's a genuine architectural finding worth fixing at the interface, not working around.
+
+**Build.**
+- `detect_environment`: pip/poetry/uv/pipenv detection from lockfiles (`requirements.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock`) — expect this to be messier than npm's three-way split, per the Learn note below.
+- `install`: dependency install via whichever manager was detected.
+- `run_tests`: pytest with a machine-readable reporter (`pytest-json-report` or similar) — same "always write to an explicit output file, don't trust stdout" lesson T2 already learned the hard way with vitest.
+- `parse_results`: map pytest's test IDs into the exact same canonical `{test_id: pass|fail}` shape `TypeScriptAdapter` already produces — this shape must not need to change for a new language to plug in cleanly.
+- Mine or hand-pick a small set of real Python task instances, reusing T3/T4's process unchanged.
+
+**Learn.** The Python packaging landscape's genuine fragmentation (pip/poetry/uv/pipenv coexist in ways npm/pnpm/yarn mostly don't); pytest's JSON reporting shape.
+
+**Done-when.** Same gold/empty gate, same TypeScriptAdapter-style stability-across-repeated-runs check, against 2–3 real Python repos — and zero changes needed anywhere in `pipeline`/`harness`/`agent` core, only a new adapter class.
+
+**Pitfalls.** The temptation to special-case Python "just this once" somewhere in the core. If that happens, the seam wasn't actually clean — fix the interface, don't leak around it.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`'s Stage I reference and the task board's T2 notes for the exact `LanguageAdapter` interface and the vitest/jest lessons already learned about JSON reporters and canonical test IDs — the same lessons likely apply to pytest). Explain first-principles. Help me build a `PythonAdapter` implementing the same four methods as `TypeScriptAdapter`: detect pip/poetry/uv/pipenv from lockfiles, install, run pytest with a machine-readable JSON report written to an explicit file (not trusted from stdout), and parse into the identical `{test_id: pass|fail}` shape the TS adapter already produces. Then help me pick 2–3 real Python repos, mine or hand-pick a few task candidates, and validate them through my existing T4 validator with zero changes to core code. I want to prove the seam is a real drop-in, not just get it working.
+
+---
+
+## T14 — `JavaAdapter`  · Must (full-completion scope)
+
+**Goal.** A third `LanguageAdapter`, this time in a compiled, build-tool-heavy ecosystem — proves the seam generalizes past interpreted scripting languages, not just from one to another of those.
+
+**Why (first principles).** Java's build/test tooling (Maven/Gradle, JUnit, Surefire reports) is a meaningfully different shape from npm's or pip's — a seam that survives this is a seam you can trust for genuinely arbitrary future languages. This also happens to be the ecosystem you know best professionally, which should make spotting a leaky abstraction easier here than anywhere else — if something feels awkward to fit into the four-method interface, trust that instinct.
+
+**Build.**
+- `detect_environment`: Maven vs Gradle detection from build files (`pom.xml` vs `build.gradle`/`build.gradle.kts`), JDK version pinning.
+- `install`: dependency resolution (`mvn dependency:resolve` / `gradle dependencies` or equivalent).
+- `run_tests`: `mvn test` / `gradle test` with a machine-readable reporter — Surefire XML reports for Maven, a custom test listener or the built-in XML/JSON test report for Gradle.
+- `parse_results`: map JUnit test IDs (class + method) into the same canonical `{test_id: pass|fail}` shape.
+- Pick 2–3 real Java repos — your own fintech/microservices background should make good candidates easy to spot (active, strong test suite, standard Maven/Gradle layout).
+
+**Learn.** JUnit XML/Surefire report parsing; the practical differences between Maven's and Gradle's dependency resolution and test-reporting conventions.
+
+**Done-when.** Same gold/empty gate, same stability-across-runs check, against 2–3 real Java repos, zero core changes.
+
+**Pitfalls.** Same as T13 — resist any temptation to special-case Java in the core. A seam that needs two exceptions to support two languages isn't the seam T2 was supposed to build.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`'s Stage I reference and the task board's T2/T13 notes for the `LanguageAdapter` interface and what's already been learned fitting a second language into it). Explain first-principles. Help me build a `JavaAdapter`: detect Maven vs Gradle from build files and pin a JDK version, run dependency resolution, run `mvn test`/`gradle test` with Surefire/JUnit XML (or equivalent) reporting, and parse JUnit test IDs into the same canonical `{test_id: pass|fail}` shape the TS and Python adapters already use. Then help me pick 2–3 real Java repos I'd trust from my own backend experience, mine or hand-pick candidates, and validate them through T4 with zero core changes. Flag anything that feels awkward to fit into the four-method interface — that's a real seam-leak signal, not just friction.
+
+---
+
+## T15 — Kafka/K8s scale-out job queue  · Must (full-completion scope)
+
+**Goal.** Turn "run task × model × repeat" into an idempotent, horizontally-scalable job queue instead of a sequential Python loop.
+
+**Why (first principles).** Once there are multiple languages (T13/T14), a bigger dataset (T3), and multiple models × repeats, sequential execution stops scaling as wall-clock cost — and this is also the most direct resume-relevant showcase of your existing Kafka/Kubernetes production experience, this time applied to infrastructure you designed yourself end-to-end rather than a work project you joined partway through.
+
+**Build.**
+- A Kafka topic of `(model, instance_id, repeat)` work items.
+- A consumer group of worker pods (K8s) each pulling one job, running it through `evaluate()` (ideally against `DockerSandbox` from T12 by this point), and writing the result to Postgres (T5) or a results topic.
+- Idempotency via the same `(model, instance_id, repeat)` key `run_driver.py` already uses for JSONL resumability — a replayed or duplicate message must be a safe no-op, never a duplicate row or a double-charged API call.
+- Decide up front whether this is a genuinely new dispatcher or a K8s-native way of running many parallel `run_driver.py`-style workers against a shared queue instead of a shared JSONL file — worth deciding deliberately rather than defaulting into whichever is easiest to start typing.
+
+**Learn.** Idempotent consumer design against a message queue; Kubernetes job/worker patterns for embarrassingly-parallel batch work.
+
+**Done-when.** The same matrix T9 already ran sequentially completes with identical results when run through the queue with multiple concurrent workers, and killing a worker mid-job doesn't lose or duplicate any result.
+
+**Pitfalls.** Building this before there's real load to justify it — a queue's value only shows up once languages × repos × models × repeats produce enough volume that a sequential loop is genuinely painful. Building it earlier is showcase-for-its-own-sake, not a real need; sequencing it last (per the recommended order) is deliberate, not a formality.
+
+**▶ Starter prompt:**
+> Continuing TS-Bench (read `ts-bench-execution-plan.md`'s Step 20 reference and the task board's T9 notes for the exact `(model, instance_id, repeat)` idempotency key `run_driver.py` already uses for JSONL resumability — reuse that same key here). Explain first-principles. I already know Kafka/K8s from production fintech work — help me design an idempotent job queue for TS-Bench specifically: a Kafka topic of (model, instance_id, repeat) work items, a K8s worker pool consuming it and running each job through `evaluate()` (against DockerSandbox if T12's done), writing results to Postgres, with duplicate/replayed messages as safe no-ops. I want to re-run my existing T9 matrix through this queue with multiple concurrent workers and confirm identical results plus safe recovery from a killed worker mid-job.
+
+---
+
+## After v0.1
+
+The items formerly parked here — Docker layered images, Kafka/K8s scale-out, rigor hardening, and multi-language adapters — are now full tracked tasks: see **T11** (rigor hardening), **T12** (Docker sandbox), **T13**/**T14** (Python/Java adapters), and **T15** (Kafka/K8s scale-out) above, and the "Recommended order from here" section near the top of this board for suggested sequencing.
