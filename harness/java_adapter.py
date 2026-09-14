@@ -27,6 +27,41 @@ _JDKS_DIR = Path.home() / ".jdks"
 _FALLBACK_MAVEN_HOME = Path.home() / ".local" / "apache-maven-3.9.9"
 _REPORT_SEPARATOR = "\n<!--TSBENCH-REPORT-FILE-->\n"
 
+# javac/Maven diagnostic phrases that mean "this is a compile failure", not a
+# generic infra problem. Checked against Maven's FULL, untruncated stdout --
+# NOT the (necessarily truncated, for storage) exception message -- because a
+# single broken edit can cascade into dozens or hundreds of downstream parse
+# errors, pushing the actual "COMPILATION ERROR"/"Compilation failure" banner
+# (and even Maven's own "Failed to execute goal ... Compilation failure"
+# summary line) past the last few thousand characters entirely. Caught live:
+# a malformed edit to HtmlTreeBuilder.java produced ~150+ repeated "class,
+# interface, or enum expected" lines, none of which contained the word
+# "Compilation" at all, so a truncated-text substring check missed it and
+# mis-scored a real candidate-patch failure as INFRA_ERROR.
+_COMPILE_FAILURE_MARKERS = (
+    "COMPILATION ERROR",
+    "Compilation failure",
+    "cannot find symbol",
+    "class, interface, or enum expected",
+    "';' expected",
+    "illegal start of",
+    "reached end of file while parsing",
+)
+
+
+def _is_compile_failure_text(full_stdout: str) -> bool:
+    return any(marker in full_stdout for marker in _COMPILE_FAILURE_MARKERS)
+
+
+class JavaCompileFailure(RuntimeError):
+    """A Maven/Gradle failure specifically identified (from FULL, untruncated
+    output) as a compile error -- as opposed to a genuine infra problem
+    (missing JDK, network fetch failure, OOM, a hang). This is what
+    is_compile_failure() actually checks via isinstance, precisely so that
+    classification never depends on whether the diagnostic banner happened
+    to survive truncation in the stored error message."""
+
+
 # CI-only quality gates a real repo can bind straight into the build
 # lifecycle (so a plain `mvn test` runs them whether asked to or not) --
 # unrelated to whether the actual tests pass, but capable of failing the
@@ -82,7 +117,10 @@ class JavaAdapter(LanguageAdapter):
             # an install() error that only surfaced stderr was silently
             # empty for every real Maven failure, indistinguishable from
             # each other and useless for debugging.
-            raise RuntimeError(f"install failed:\n{result.stdout[-3000:]}\n{result.stderr[-1000:]}")
+            message = f"install failed:\n{result.stdout[-3000:]}\n{result.stderr[-1000:]}"
+            if _is_compile_failure_text(result.stdout):
+                raise JavaCompileFailure(message)
+            raise RuntimeError(message)
 
     def run_tests(
         self, sandbox, env: Environment, test_ids: list[str] | None = None, timeout: int = 300
@@ -108,10 +146,13 @@ class JavaAdapter(LanguageAdapter):
             # an exception that only surfaced stderr was silently empty for
             # the most common real failure (the candidate patch broke the
             # build), indistinguishable from a genuine infra problem.
-            raise RuntimeError(
+            message = (
                 f"no JUnit XML report produced (exit {result.returncode}).\n"
                 f"stdout:\n{result.stdout[-3000:]}\nstderr:\n{result.stderr[-1000:]}"
             )
+            if _is_compile_failure_text(result.stdout):
+                raise JavaCompileFailure(message)
+            raise RuntimeError(message)
         return _REPORT_SEPARATOR.join(f.read_text(errors="replace") for f in report_files)
 
     def parse_results(self, raw_output: str, runner: str = "surefire") -> dict[str, bool]:
@@ -132,14 +173,15 @@ class JavaAdapter(LanguageAdapter):
         return out
 
     def is_compile_failure(self, error: Exception) -> bool:
-        # install()'s own error message truncates to the last few thousand
-        # characters of Maven's output (see install()) -- for a test file
-        # with many repeated errors (the same missing symbol referenced on
-        # a dozen lines), that tail can cut off the "COMPILATION ERROR"
-        # banner itself while still containing these, which appear right
-        # next to each individual [ERROR] line and survive truncation.
-        text = str(error)
-        return any(s in text for s in ("COMPILATION ERROR", "Compilation failure", "cannot find symbol"))
+        # install()/run_tests() already did this classification against
+        # Maven's FULL, untruncated stdout (see JavaCompileFailure) --
+        # checking isinstance here, rather than re-matching substrings
+        # against the (necessarily truncated, for storage) exception
+        # message, is what makes this classification immune to a cascade of
+        # downstream errors pushing the actual diagnostic banner out of a
+        # truncated tail. See _is_compile_failure_text's docstring-comment
+        # for the real case that motivated this.
+        return isinstance(error, JavaCompileFailure)
 
     def extract_test_ids_from_diff(self, diff_text: str) -> list[str]:
         """Pull `classname::methodName` targets straight out of a unified

@@ -1,14 +1,33 @@
-from harness.java_adapter import JavaAdapter
+from harness.java_adapter import JavaAdapter, JavaCompileFailure, _is_compile_failure_text
 
 
 def _adapter():
     return JavaAdapter(repo_path=None)
 
 
-def test_is_compile_failure_detects_javac_banner():
+def test_is_compile_failure_checks_exception_type_not_message_text():
+    """is_compile_failure() must key off JavaCompileFailure specifically, not
+    substring-match the (possibly truncated) message -- a plain RuntimeError
+    that happens to mention "COMPILATION ERROR" must NOT count, since that
+    would reintroduce exactly the truncation fragility this design avoids."""
     adapter = _adapter()
-    assert adapter.is_compile_failure(RuntimeError("[ERROR] COMPILATION ERROR : \n...")) is True
+    assert adapter.is_compile_failure(JavaCompileFailure("[ERROR] COMPILATION ERROR : \n...")) is True
     assert adapter.is_compile_failure(RuntimeError("connection timed out")) is False
+    assert adapter.is_compile_failure(RuntimeError("[ERROR] COMPILATION ERROR : \n...")) is False
+
+
+def test_is_compile_failure_text_detects_cascading_syntax_errors():
+    """The real case that motivated this: a broken edit that produces
+    dozens of "class, interface, or enum expected" errors with no
+    "COMPILATION ERROR"/"Compilation failure" banner anywhere nearby (caught
+    live against jhy__jsoup-2602 with a real model's malformed patch)."""
+    full_stdout = "\n".join(
+        f"[ERROR] .../HtmlTreeBuilder.java:[{n},5] class, interface, or enum expected"
+        for n in range(1190, 1350)
+    )
+    assert "COMPILATION ERROR" not in full_stdout
+    assert "Compilation failure" not in full_stdout
+    assert _is_compile_failure_text(full_stdout) is True
 
 
 def test_extract_test_ids_from_diff_finds_annotated_method():
