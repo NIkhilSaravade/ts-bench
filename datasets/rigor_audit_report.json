@@ -1,0 +1,421 @@
+{
+  "n_runs": 3,
+  "results": [
+    {
+      "instance_id": "colinhacks__zod-6530",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "colinhacks__zod-6587",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "colinhacks__zod-6572",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "colinhacks__zod-6534",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "colinhacks__zod-6532",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "date-fns__date-fns-3662",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "date-fns__date-fns-3132",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "trpc__trpc-7477",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "trpc__trpc-7469",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "trpc__trpc-7464",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "trpc__trpc-7434",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "trpc__trpc-7390",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "instance_id": "trpc__trpc-7370",
+      "clean": true,
+      "gold_runs": [
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        },
+        {
+          "status": "ok",
+          "resolved": true
+        }
+      ],
+      "empty_runs": [
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        },
+        {
+          "status": "ok",
+          "resolved": false
+        }
+      ]
+    }
+  ]
+}
