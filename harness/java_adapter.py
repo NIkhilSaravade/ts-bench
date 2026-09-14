@@ -103,8 +103,14 @@ class JavaAdapter(LanguageAdapter):
 
         report_files = self._report_files()
         if not report_files:
+            # Same lesson as install(): Maven's own [ERROR] diagnostics
+            # (including "COMPILATION ERROR") go to stdout, not stderr --
+            # an exception that only surfaced stderr was silently empty for
+            # the most common real failure (the candidate patch broke the
+            # build), indistinguishable from a genuine infra problem.
             raise RuntimeError(
-                f"no JUnit XML report produced (exit {result.returncode}).\nstderr:\n{result.stderr[-2000:]}"
+                f"no JUnit XML report produced (exit {result.returncode}).\n"
+                f"stdout:\n{result.stdout[-3000:]}\nstderr:\n{result.stderr[-1000:]}"
             )
         return _REPORT_SEPARATOR.join(f.read_text(errors="replace") for f in report_files)
 

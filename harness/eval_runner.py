@@ -109,6 +109,31 @@ def evaluate(
         except TimeoutError as e:
             return done(EvalStatus.TIMEOUT, stderr_tail=str(e))
         except Exception as e:
+            # A compile failure here is a REAL, scoreable outcome, not an
+            # infra problem: for a compiled language, test_patch can require
+            # an API surface only the correct fix adds (this is exactly what
+            # T14's mining-time salvage handles for red_run against
+            # base_commit -- see harness/java_adapter.py). At real-agent eval
+            # time the same thing happens whenever a candidate patch is
+            # incomplete: the injected tests simply won't compile against
+            # it. Counting that as infra_error would silently exclude every
+            # genuine "the agent didn't add the needed API" failure from the
+            # resolved/unresolved denominator, inflating every model's score
+            # on any instance that needed this salvage path. Every target
+            # test correctly counts as not-passing (it never ran) rather
+            # than being dropped from scoring entirely.
+            if adapter.is_compile_failure(e):
+                f2p = {t: False for t in instance.fail_to_pass}
+                p2p = {t: False for t in instance.pass_to_pass}
+                return done(
+                    EvalStatus.OK,
+                    resolved=False,
+                    fail_to_pass_results=f2p,
+                    pass_to_pass_results=p2p,
+                    patch_strategy=apply_result.strategy,
+                    reset_paths=test_paths_touched,
+                    stderr_tail=str(e)[-2000:],
+                )
             return done(EvalStatus.INFRA_ERROR, stderr_tail=str(e)[-2000:])
 
         outcomes = adapter.parse_results(raw, env.test_runner)

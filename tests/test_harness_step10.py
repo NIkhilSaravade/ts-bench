@@ -119,3 +119,21 @@ def test_evaluate_malformed_patch_never_crashes(one_instance):
     result = evaluate(one_instance, "this is not a diff\ngarbage text\n", MIRRORS_DIR)
     assert result.status == EvalStatus.PATCH_APPLY_FAILED
     assert result.resolved is False
+
+
+def test_evaluate_compile_failure_is_resolved_false_not_infra_error(instances):
+    """Real-agent-run finding (never exercised before a first real Java run,
+    since the gate only ever scores the gold patch, which always compiles):
+    jhy__jsoup-2602 is one of T14's "salvaged" instances -- the gold patch
+    adds HtmlTreeBuilder.insertNode(), which test_patch's injected test needs
+    just to COMPILE. An empty (or any incomplete) candidate patch can't add
+    that method, so test-compile fails outright, before any test ever runs.
+    That's a real, legitimate "the agent didn't solve it" -- it must score
+    resolved=False, not infra_error (which would silently drop it from the
+    resolved/unresolved denominator and inflate the model's real score)."""
+    jsoup_2602 = next(i for i in instances if i.instance_id == "jhy__jsoup-2602")
+    result = evaluate(jsoup_2602, "", MIRRORS_DIR)
+    assert result.status == EvalStatus.OK
+    assert result.resolved is False
+    assert result.fail_to_pass_results
+    assert all(v is False for v in result.fail_to_pass_results.values())
