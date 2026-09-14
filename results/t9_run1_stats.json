@@ -1,0 +1,110 @@
+{
+  "mock/random:0.3": {
+    "model": "mock/random:0.3",
+    "k": 5,
+    "num_tasks": 5,
+    "total_attempts": 50,
+    "total_resolved": 18,
+    "resolved_rate": 0.36,
+    "resolved_rate_stderr": 0.06788225099390856,
+    "mean_pass_at_k": 0.9444444444444444,
+    "mean_pass_at_k_stderr": 0.01729721802992329,
+    "total_cost_usd": 0.0,
+    "per_task": [
+      {
+        "instance_id": "colinhacks__zod-6530",
+        "n": 10,
+        "c": 5,
+        "resolved_rate": 0.5,
+        "pass_at_k": 0.996031746031746,
+        "pass_at_k_bootstrap_std": 0.08098849021052153
+      },
+      {
+        "instance_id": "colinhacks__zod-6532",
+        "n": 10,
+        "c": 4,
+        "resolved_rate": 0.4,
+        "pass_at_k": 0.9761904761904762,
+        "pass_at_k_bootstrap_std": 0.13074355041957691
+      },
+      {
+        "instance_id": "colinhacks__zod-6534",
+        "n": 10,
+        "c": 3,
+        "resolved_rate": 0.3,
+        "pass_at_k": 0.9166666666666667,
+        "pass_at_k_bootstrap_std": 0.2105262739602561
+      },
+      {
+        "instance_id": "colinhacks__zod-6572",
+        "n": 10,
+        "c": 3,
+        "resolved_rate": 0.3,
+        "pass_at_k": 0.9166666666666667,
+        "pass_at_k_bootstrap_std": 0.20373853284733928
+      },
+      {
+        "instance_id": "colinhacks__zod-6587",
+        "n": 10,
+        "c": 3,
+        "resolved_rate": 0.3,
+        "pass_at_k": 0.9166666666666667,
+        "pass_at_k_bootstrap_std": 0.20310084605503953
+      }
+    ]
+  },
+  "mock/random:0.7": {
+    "model": "mock/random:0.7",
+    "k": 5,
+    "num_tasks": 5,
+    "total_attempts": 50,
+    "total_resolved": 36,
+    "resolved_rate": 0.72,
+    "resolved_rate_stderr": 0.06349803146555018,
+    "mean_pass_at_k": 0.9992063492063492,
+    "mean_pass_at_k_stderr": 0.0007936507936507908,
+    "total_cost_usd": 0.0,
+    "per_task": [
+      {
+        "instance_id": "colinhacks__zod-6530",
+        "n": 10,
+        "c": 7,
+        "resolved_rate": 0.7,
+        "pass_at_k": 1.0,
+        "pass_at_k_bootstrap_std": 0.01221777242616039
+      },
+      {
+        "instance_id": "colinhacks__zod-6532",
+        "n": 10,
+        "c": 9,
+        "resolved_rate": 0.9,
+        "pass_at_k": 1.0,
+        "pass_at_k_bootstrap_std": 0.0
+      },
+      {
+        "instance_id": "colinhacks__zod-6534",
+        "n": 10,
+        "c": 8,
+        "resolved_rate": 0.8,
+        "pass_at_k": 1.0,
+        "pass_at_k_bootstrap_std": 0.002422643422520799
+      },
+      {
+        "instance_id": "colinhacks__zod-6572",
+        "n": 10,
+        "c": 5,
+        "resolved_rate": 0.5,
+        "pass_at_k": 0.996031746031746,
+        "pass_at_k_bootstrap_std": 0.0684194596472949
+      },
+      {
+        "instance_id": "colinhacks__zod-6587",
+        "n": 10,
+        "c": 7,
+        "resolved_rate": 0.7,
+        "pass_at_k": 1.0,
+        "pass_at_k_bootstrap_std": 0.015110503433951589
+      }
+    ]
+  }
+}

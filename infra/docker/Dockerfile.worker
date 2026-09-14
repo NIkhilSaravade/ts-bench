@@ -1,0 +1,34 @@
+# T15: the K8s worker pod image. Scoped to the Python instances in the
+# dataset (see the task board's T15 notes for why) -- so this needs
+# git+uv+Python only, not the full Node/JDK/Maven toolchains T2/T14 needed
+# on the host. The repo's own git mirrors are baked in (a few MB for the
+# two repos this demo uses) rather than reached via a volume mount, since
+# kind's default cluster config has no hostPath wired in for them and
+# they're small enough that copying is simpler and more self-contained.
+FROM python:3.12-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git patch ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# uv, for PythonAdapter's own per-instance venv management (T13) -- the
+# official distroless image is the simplest way to get a pinned static binary.
+COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+COPY pipeline/ pipeline/
+COPY harness/ harness/
+COPY agent/ agent/
+COPY scripts/kafka_worker.py scripts/kafka_worker.py
+COPY datasets/instances.jsonl datasets/instances.jsonl
+COPY mirrors/arrow-py__arrow.git mirrors/arrow-py__arrow.git
+COPY mirrors/jd__tenacity.git mirrors/jd__tenacity.git
+
+ENV MIRRORS_DIR=/app/mirrors
+ENV INSTANCES_FILE=/app/datasets/instances.jsonl
+
+CMD ["uv", "run", "python", "scripts/kafka_worker.py"]

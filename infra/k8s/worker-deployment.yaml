@@ -1,0 +1,43 @@
+# T15: a consumer group of worker pods. Scaling out is "bump replicas" --
+# Kafka's own consumer-group rebalancing splits the job-topic's partitions
+# across however many pods are actually alive, no sharding logic of our own.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ts-bench-worker
+  labels:
+    app: ts-bench-worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ts-bench-worker
+  template:
+    metadata:
+      labels:
+        app: ts-bench-worker
+    spec:
+      containers:
+        - name: worker
+          image: ts-bench-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # Both point at plain Docker containers on the "kind" bridge
+            # network (not Kubernetes Services) -- see the task board's T15
+            # notes for why Kafka/Postgres were deliberately kept outside
+            # the cluster for this pass.
+            - name: KAFKA_BROKER
+              value: "172.18.0.10:9092"
+            - name: DATABASE_URL
+              value: "postgresql://tsbench:tsbench@172.18.0.11:5432/tsbench"
+            - name: KAFKA_TOPIC
+              value: "ts-bench-jobs"
+            - name: KAFKA_GROUP_ID
+              value: "ts-bench-workers"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
