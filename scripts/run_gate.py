@@ -1,8 +1,12 @@
 """The critical gate for Step 10: prove the RUNNER (not just the validator)
 is correct. Gold patch must resolve every instance; empty patch must resolve
-none. If either fails, there is a harness bug -- fix it, don't move on."""
+none. If either fails, there is a harness bug -- fix it, don't move on.
+
+Pass --docker to run the same gate through DockerSandbox (T12) instead of
+the default LocalSandbox -- proves behavioral parity between the two."""
 
 import sys
+import time
 from pathlib import Path
 
 from harness.eval_runner import evaluate
@@ -18,19 +22,29 @@ def load_instances() -> list[TaskInstance]:
 
 
 def main() -> None:
+    sandbox = None
+    if "--docker" in sys.argv:
+        from harness.docker_sandbox import DockerSandbox
+
+        sandbox = DockerSandbox()
+        print("running gate through DockerSandbox\n")
+
     instances = load_instances()
     failures = []
+    t_start = time.monotonic()
 
     for inst in instances:
-        gold = evaluate(inst, inst.gold_patch, MIRRORS_DIR)
+        gold = evaluate(inst, inst.gold_patch, MIRRORS_DIR, sandbox=sandbox)
         print(f"{inst.instance_id} [gold]  status={gold.status.value} resolved={gold.resolved}")
         if not gold.resolved:
             failures.append((inst.instance_id, "gold", gold))
 
-        empty = evaluate(inst, "", MIRRORS_DIR)
+        empty = evaluate(inst, "", MIRRORS_DIR, sandbox=sandbox)
         print(f"{inst.instance_id} [empty] status={empty.status.value} resolved={empty.resolved}")
         if empty.resolved:
             failures.append((inst.instance_id, "empty", empty))
+
+    print(f"\ntotal wall clock: {time.monotonic() - t_start:.1f}s")
 
     if failures:
         print(f"\nGATE FAILED: {len(failures)} case(s)")

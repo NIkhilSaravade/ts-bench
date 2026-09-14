@@ -163,7 +163,14 @@ class TypeScriptAdapter(LanguageAdapter):
         otherwise re-invoke nvm/corepack every single time.
         """
         if version not in self._pinned_env_cache:
-            self._pinned_env_cache[version] = {"PATH": f"{self._node_bin_dir(version)}:{os.environ['PATH']}"}
+            self._pinned_env_cache[version] = {
+                "PATH": f"{self._node_bin_dir(version)}:{os.environ['PATH']}",
+                # A host nvm PATH means nothing inside a container -- this
+                # plain, sandbox-agnostic hint is what DockerSandbox (T12)
+                # actually reads to pick a matching node:<major> image, so
+                # this adapter never has to know which Sandbox it's talking to.
+                "TSBENCH_NODE_VERSION": version,
+            }
         return self._pinned_env_cache[version]
 
     def _node_bin_dir(self, version: str) -> Path:

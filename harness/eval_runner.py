@@ -25,6 +25,7 @@ def evaluate(
     mirrors_dir: Path,
     install_timeout: int = 600,
     test_timeout: int = 180,
+    sandbox: object | None = None,
 ) -> EvalResult:
     start = time.monotonic()
     mirror = mirrors_dir / f"{instance.repo.replace('/', '__')}.git"
@@ -34,9 +35,20 @@ def evaluate(
     # deliberate safety check from validate.py's use case). So we get a
     # unique parent from mkdtemp, then materialize into a not-yet-existing
     # subdirectory of it.
-    tmp_root = Path(tempfile.mkdtemp(prefix=f"tsbench-{instance.instance_id}-"))
+    #
+    # Deliberately NOT embedding instance.instance_id in the prefix (found
+    # during T12's Docker testing, but it's a pre-existing risk equally real
+    # under LocalSandbox): some workspace packages' postinstall scripts
+    # (e.g. one of trpc's examples, via tsx's dev-server codegen step) bind a
+    # Unix domain socket inside node_modules, and Linux caps sun_path at
+    # ~108 bytes. A long instance_id folded into the temp dir name was
+    # occasionally enough, combined with deep node_modules nesting, to blow
+    # that limit with a confusing EINVAL "listen" failure that looked like a
+    # sandbox bug. A short, fixed prefix leaves headroom regardless of how
+    # long a future instance_id gets.
+    tmp_root = Path(tempfile.mkdtemp(prefix="tsbench-"))
     work_dir = tmp_root / "instance"
-    sandbox = LocalSandbox()
+    sandbox = sandbox if sandbox is not None else LocalSandbox()
 
     def done(status: EvalStatus, **kwargs) -> EvalResult:
         return EvalResult(
