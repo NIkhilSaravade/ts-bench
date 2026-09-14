@@ -72,6 +72,13 @@ def is_test_path(path: str) -> bool:
         or basename in _COLOCATED_TEST_BASENAMES
         or (basename.startswith("test_") and basename.endswith(".py"))
         or basename.endswith("_test.py")
+        # Maven/Gradle's universal src/test/java (or /kotlin, /groovy) layout
+        # convention (T14), plus the two standard JUnit class-naming
+        # conventions (FooTest.java / TestFoo.java) as a fallback for the
+        # rare repo that puts test sources somewhere else.
+        or "/src/test/" in path
+        or (basename.endswith("Test.java") or basename.endswith("Tests.java"))
+        or (basename.startswith("Test") and basename.endswith(".java"))
     )
 
 

@@ -86,7 +86,12 @@ def _fetch_page(token: str, repo: str, cursor: str | None, cache_dir: Path) -> d
 
 
 def mine_repo(
-    repo: str, token: str, cache_dir: Path, max_pages: int = 6, language: str = "typescript"
+    repo: str,
+    token: str,
+    cache_dir: Path,
+    max_pages: int = 6,
+    language: str = "typescript",
+    package_path: str | None = None,
 ) -> list[Candidate]:
     """Scan up to `max_pages` * 50 most-recently-created merged PRs in `repo`,
     returning one Candidate per PR that both closes an issue and touches a
@@ -113,6 +118,7 @@ def mine_repo(
                     issue_number=issues[0]["number"],
                     merge_commit=merge_commit["oid"],
                     language=language,
+                    package_path=package_path,
                 )
             )
         if not search["pageInfo"]["hasNextPage"]:

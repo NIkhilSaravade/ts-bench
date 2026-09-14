@@ -18,6 +18,13 @@ class Candidate:
     issue_number: int
     merge_commit: str
     language: str = "typescript"
+    # Relative path (from the materialized instance root) to the actual
+    # package/module under test -- needed for a multi-module monorepo
+    # (a TS workspace package, or a multi-module Maven reactor like gson's
+    # gson/test-jpms/extras/... layout) where the repo root itself isn't
+    # buildable/testable in isolation. None means single-package, the
+    # common case, with zero behavior change.
+    package_path: str | None = None
 
 
 @dataclass
@@ -44,8 +51,9 @@ def red_run(candidate: Candidate, mirrors_dir: Path, work_dir: Path) -> dict:
     git.materialize_instance(mirror, base, dest)
     git.apply_patch(dest, test_patch)
 
+    package_path = dest / candidate.package_path if candidate.package_path else None
     sandbox = LocalSandbox()
-    adapter = get_adapter(candidate.language, dest)
+    adapter = get_adapter(candidate.language, dest, package_path)
     env = adapter.detect_environment(dest)
     adapter.install(sandbox, env)
 
@@ -61,6 +69,7 @@ def red_run(candidate: Candidate, mirrors_dir: Path, work_dir: Path) -> dict:
         "head": head,
         "dest": dest,
         "language": candidate.language,
+        "package_path": candidate.package_path,
         "test_files": test_files,
         "non_test_files": non_test_files,
         "test_patch": test_patch,
@@ -75,8 +84,9 @@ def green_run(red_result: dict, n: int = 3) -> dict:
     dest = red_result["dest"]
     git.apply_patch(dest, red_result["gold_patch"])
 
+    package_path = dest / red_result["package_path"] if red_result["package_path"] else None
     sandbox = LocalSandbox()
-    adapter = get_adapter(red_result["language"], dest)
+    adapter = get_adapter(red_result["language"], dest, package_path)
     env = adapter.detect_environment(dest)
     # no reinstall needed -- gold_patch only touches source files, not dependencies
 
@@ -165,7 +175,8 @@ def validate_candidate(candidate: Candidate, mirrors_dir: Path, work_dir: Path) 
         )
 
     problem_statement = fetch_issue_text(candidate.repo, candidate.issue_number)
-    adapter = get_adapter(candidate.language, red["dest"])
+    package_path = red["dest"] / candidate.package_path if candidate.package_path else None
+    adapter = get_adapter(candidate.language, red["dest"], package_path)
     harness_env = adapter.detect_environment(red["dest"])
 
     try:

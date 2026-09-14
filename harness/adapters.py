@@ -6,6 +6,7 @@ single seam, not scattered `if language == ...` checks.
 
 from pathlib import Path
 
+from harness.java_adapter import JavaAdapter
 from harness.language_adapter import LanguageAdapter
 from harness.python_adapter import PythonAdapter
 from harness.ts_adapter import TypeScriptAdapter
@@ -13,6 +14,7 @@ from harness.ts_adapter import TypeScriptAdapter
 _ADAPTERS: dict[str, type[LanguageAdapter]] = {
     "typescript": TypeScriptAdapter,
     "python": PythonAdapter,
+    "java": JavaAdapter,
 }
 
 

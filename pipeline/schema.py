@@ -45,7 +45,7 @@ class Environment(BaseModel):
     @field_validator("package_manager")
     @classmethod
     def package_manager_is_known(cls, v: str) -> str:
-        allowed = {"npm", "pnpm", "yarn", "pip", "poetry", "uv", "pipenv"}
+        allowed = {"npm", "pnpm", "yarn", "pip", "poetry", "uv", "pipenv", "maven", "gradle"}
         if v not in allowed:
             raise ValueError(f"package_manager must be one of {allowed}, got {v!r}")
         return v
@@ -81,7 +81,7 @@ class TaskInstance(BaseModel):
     @field_validator("language")
     @classmethod
     def language_is_known(cls, v: str) -> str:
-        allowed = {"typescript", "python"}
+        allowed = {"typescript", "python", "java"}
         if v not in allowed:
             raise ValueError(f"language must be one of {allowed}, got {v!r}")
         return v
