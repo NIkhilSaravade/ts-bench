@@ -16,7 +16,7 @@ def _write_minimal_instance(path, instance_id="acme__widget-1"):
         "fail_to_pass": ["x.test.ts::works"],
         "pass_to_pass": [],
         "environment": {
-            "node_version": "20.11.1",
+            "runtime_version": "20.11.1",
             "package_manager": "npm",
             "install_cmd": "npm ci",
             "test_cmd": "npm test",

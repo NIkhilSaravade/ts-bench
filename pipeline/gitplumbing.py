@@ -58,14 +58,20 @@ _COLOCATED_TEST_BASENAMES = {"test.ts", "test.tsx", "test.js", "test.jsx", "test
 
 def is_test_path(path: str) -> bool:
     # `.test.ts`-suffix (zod, trpc) and colocated-bare-`test.ts` (date-fns:
-    # one `test.ts` per source file, in the same directory) are both
-    # real, widely-used conventions -- neither implies the other.
+    # one `test.ts` per source file, in the same directory) are both real,
+    # widely-used TS conventions -- neither implies the other. pytest's own
+    # two conventions (T13) are additive on top, not exclusive with these:
+    # a repo could in principle mix languages, and this function's only job
+    # is "would a human call this a test file," not "which language."
+    basename = path.rsplit("/", 1)[-1]
     return (
         ".test." in path
         or ".spec." in path
         or "/tests/" in path
         or "/__tests__/" in path
-        or path.rsplit("/", 1)[-1] in _COLOCATED_TEST_BASENAMES
+        or basename in _COLOCATED_TEST_BASENAMES
+        or (basename.startswith("test_") and basename.endswith(".py"))
+        or basename.endswith("_test.py")
     )
 
 

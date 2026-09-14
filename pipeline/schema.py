@@ -24,21 +24,28 @@ class Environment(BaseModel):
 
     This is deliberately its own nested model rather than four loose fields
     on TaskInstance: it's a cohesive unit (you always need all four together
-    to run a test), and later, this is exactly the shape the
-    LanguageAdapter's detect_environment() method will return.
+    to run a test). Record-keeping/documentation only -- eval_runner.py
+    always calls the adapter's own detect_environment() fresh rather than
+    trusting this, so nothing here needs to be executable, just accurate.
+
+    `runtime_version` was originally named `node_version` -- fine while
+    TypeScriptAdapter was the only implementation, but a real interface leak
+    once T13 needed to record a Python interpreter version in it. Renamed
+    once a second language actually existed to prove the leak, rather than
+    guessing at the "right" generic name up front.
     """
 
-    node_version: str = Field(..., description="Pinned Node version, e.g. '20.11.0' — not a range.")
-    package_manager: str = Field(
-        ..., description="One of: npm, pnpm, yarn — determined by which lockfile is present."
+    runtime_version: str = Field(
+        ..., description="Pinned language runtime version, e.g. '20.11.0' or '3.12.1' -- not a range."
     )
+    package_manager: str = Field(..., description="Which package manager was used to install dependencies.")
     install_cmd: str = Field(..., description="Exact command to install dependencies.")
     test_cmd: str = Field(..., description="Exact command to run the test suite.")
 
     @field_validator("package_manager")
     @classmethod
     def package_manager_is_known(cls, v: str) -> str:
-        allowed = {"npm", "pnpm", "yarn"}
+        allowed = {"npm", "pnpm", "yarn", "pip", "poetry", "uv", "pipenv"}
         if v not in allowed:
             raise ValueError(f"package_manager must be one of {allowed}, got {v!r}")
         return v
@@ -65,6 +72,19 @@ class TaskInstance(BaseModel):
         description="Test IDs already passing at base_commit that must stay passing (regression guard)",
     )
     environment: Environment
+    language: str = Field(
+        default="typescript",
+        description="Which LanguageAdapter this instance runs under -- selects the adapter, "
+        "core pipeline/harness code never branches on it directly.",
+    )
+
+    @field_validator("language")
+    @classmethod
+    def language_is_known(cls, v: str) -> str:
+        allowed = {"typescript", "python"}
+        if v not in allowed:
+            raise ValueError(f"language must be one of {allowed}, got {v!r}")
+        return v
 
     @field_validator("base_commit")
     @classmethod

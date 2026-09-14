@@ -48,6 +48,7 @@ upgrade (task board, "After v0.1").
 from __future__ import annotations
 
 import os
+import random
 import re
 import subprocess
 import time
@@ -232,16 +233,43 @@ def _complete_with_rate_limit_retry(completion_kwargs: dict):
 def _run_mock_agent(model: str, instance: TaskInstance, workspace: Path, start: float) -> AgentRunResult:
     """MockModel: exercises the full agent -> patch -> evaluate() pipeline with
     zero network calls and zero cost, so the harness can be proven end-to-end
-    before spending anything (T8 goal). Two variants:
+    before spending anything (T8 goal) -- and so T9's pass@k/variance pipeline
+    has a source of REAL, controllable stochastic outcomes to compute over,
+    also without spending anything. Three variants:
 
     - "mock/gold": applies the task's own gold_patch and submits -- should
       resolve every FAIL_TO_PASS test when scored, proving the happy path.
     - "mock/empty": makes no changes and never submits -- a deterministic
       "clean fail, no attempt" baseline, proving the harness scores a non-
       attempt as unresolved without crashing.
+    - "mock/random:<p>": flips a p-weighted coin (p in [0, 1], parsed straight
+      out of the model string) and does exactly what "gold" does on heads,
+      exactly what "empty" does on tails. Deliberately reuses the two
+      already-gate-tested deterministic outcomes instead of inventing a third
+      patch strategy -- so a run against "mock/random:<p>" is, by
+      construction, a genuine independent Bernoulli(p) trial: call it n
+      times and the observed resolved rate concentrates around p as n grows,
+      which is exactly what pipeline/stats.py's pass@k/bootstrap machinery
+      needs a real thing to estimate.
     """
     variant = model.removeprefix("mock/")
     transcript = [{"role": "system", "content": f"[MockModel variant={variant!r}, no LLM calls made]"}]
+
+    if variant.startswith("random:"):
+        p_str = variant.removeprefix("random:")
+        try:
+            resolve_probability = float(p_str)
+        except ValueError:
+            raise ValueError(
+                f"'mock/random:<p>' needs a float probability, e.g. 'mock/random:0.5', got {p_str!r}"
+            ) from None
+        if not 0.0 <= resolve_probability <= 1.0:
+            raise ValueError(f"mock/random:<p> requires 0.0 <= p <= 1.0, got {resolve_probability}")
+        heads = random.random() < resolve_probability
+        transcript.append(
+            {"role": "system", "content": f"[coin flip: p={resolve_probability}, heads={heads}]"}
+        )
+        variant = "gold" if heads else "empty"
 
     if variant == "gold":
         result = subprocess.run(
@@ -261,7 +289,10 @@ def _run_mock_agent(model: str, instance: TaskInstance, workspace: Path, start: 
         submitted = False
         turns_used = 0
     else:
-        raise ValueError(f"unknown mock model variant {variant!r} (expected 'mock/gold' or 'mock/empty')")
+        raise ValueError(
+            f"unknown mock model variant {variant!r} "
+            "(expected 'mock/gold', 'mock/empty', or 'mock/random:<p>')"
+        )
 
     return AgentRunResult(
         patch=extract_patch(workspace),

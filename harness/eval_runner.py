@@ -12,9 +12,9 @@ import tempfile
 import time
 from pathlib import Path
 
+from harness.adapters import get_adapter
 from harness.eval_result import EvalResult, EvalStatus
 from harness.local_sandbox import LocalSandbox
-from harness.ts_adapter import TypeScriptAdapter
 from pipeline import gitplumbing as git
 from pipeline.schema import TaskInstance
 
@@ -63,7 +63,7 @@ def evaluate(
         # caching across runs: this harness's entire job is correctness, and
         # Step 9 (Docker layers) is where caching gets solved properly later.
         git.materialize_instance(mirror, instance.base_commit, work_dir)
-        adapter = TypeScriptAdapter(repo_path=work_dir)
+        adapter = get_adapter(instance.language, work_dir)
         env = adapter.detect_environment(work_dir)  # always fresh, never trust instance.environment
 
         try:

@@ -1,4 +1,14 @@
 {
+  "arrow-py__arrow-1222": {
+    "head_commit": "4c8c44aefc0e5504b9c3cbf0d6adbb0ec4aa4571",
+    "pr_merge_date": "2025-10-01",
+    "repo": "arrow-py/arrow"
+  },
+  "arrow-py__arrow-954": {
+    "head_commit": "1310dbbc32ce41adac4840e4e399da0f77836041",
+    "pr_merge_date": "2021-04-18",
+    "repo": "arrow-py/arrow"
+  },
   "colinhacks__zod-6530": {
     "head_commit": "cafbee4772ef481611fef6f5fb9ed9a1b9597069",
     "pr_merge_date": "2026-08-31",
@@ -33,6 +43,21 @@
     "head_commit": "d36d2ebde2f36d5accce37c0a6d8bce9d84e6eb1",
     "pr_merge_date": "2024-01-15",
     "repo": "date-fns/date-fns"
+  },
+  "jd__tenacity-609": {
+    "head_commit": "44eaefbbd0ec89fca573a1fffd55d149ac29cca9",
+    "pr_merge_date": "2026-02-24",
+    "repo": "jd/tenacity"
+  },
+  "jd__tenacity-615": {
+    "head_commit": "cb320c4d80d8af7e8953dbf40224172a06b9b977",
+    "pr_merge_date": "2026-02-25",
+    "repo": "jd/tenacity"
+  },
+  "jd__tenacity-654": {
+    "head_commit": "29d398bd21af492abeecd9fc9d33c48dc4d5fc08",
+    "pr_merge_date": "2026-07-13",
+    "repo": "jd/tenacity"
   },
   "trpc__trpc-7370": {
     "head_commit": "c7360d4eb3c89c336468809a293e5cda4b302d4b",

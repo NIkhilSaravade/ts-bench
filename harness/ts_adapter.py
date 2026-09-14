@@ -39,7 +39,11 @@ class TypeScriptAdapter(LanguageAdapter):
             package_manager=manager,
             test_runner=runner,
             install_cmd=_INSTALL_CMDS[manager],
-            test_cmd_template=[],
+            # A representative human-readable command, not necessarily
+            # byte-identical to _build_test_cmd()'s actual reporter-flag-laden
+            # invocation -- this only ever feeds the schema's documentation-only
+            # Environment.test_cmd field (see pipeline/validate.py).
+            test_cmd_template=[manager, "test"],
         )
 
     def install(self, sandbox, env: Environment) -> None:

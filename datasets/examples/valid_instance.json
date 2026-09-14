@@ -12,7 +12,7 @@
     "src/__tests__/string.test.ts > string min"
   ],
   "environment": {
-    "node_version": "20.11.0",
+    "runtime_version": "20.11.0",
     "package_manager": "pnpm",
     "install_cmd": "pnpm install --frozen-lockfile",
     "test_cmd": "pnpm vitest run --reporter=json"

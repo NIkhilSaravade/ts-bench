@@ -4,8 +4,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from harness.adapters import get_adapter
 from harness.local_sandbox import LocalSandbox
-from harness.ts_adapter import TypeScriptAdapter
 from pipeline import gitplumbing as git
 from pipeline.schema import Environment as SchemaEnvironment
 from pipeline.schema import TaskInstance
@@ -17,6 +17,7 @@ class Candidate:
     pr_number: int
     issue_number: int
     merge_commit: str
+    language: str = "typescript"
 
 
 @dataclass
@@ -44,7 +45,7 @@ def red_run(candidate: Candidate, mirrors_dir: Path, work_dir: Path) -> dict:
     git.apply_patch(dest, test_patch)
 
     sandbox = LocalSandbox()
-    adapter = TypeScriptAdapter(repo_path=dest)
+    adapter = get_adapter(candidate.language, dest)
     env = adapter.detect_environment(dest)
     adapter.install(sandbox, env)
 
@@ -59,6 +60,7 @@ def red_run(candidate: Candidate, mirrors_dir: Path, work_dir: Path) -> dict:
         "base": base,
         "head": head,
         "dest": dest,
+        "language": candidate.language,
         "test_files": test_files,
         "non_test_files": non_test_files,
         "test_patch": test_patch,
@@ -74,7 +76,7 @@ def green_run(red_result: dict, n: int = 3) -> dict:
     git.apply_patch(dest, red_result["gold_patch"])
 
     sandbox = LocalSandbox()
-    adapter = TypeScriptAdapter(repo_path=dest)
+    adapter = get_adapter(red_result["language"], dest)
     env = adapter.detect_environment(dest)
     # no reinstall needed -- gold_patch only touches source files, not dependencies
 
@@ -129,10 +131,13 @@ def fetch_issue_text(repo: str, issue_number: int) -> str:
 
 def to_schema_environment(harness_env) -> SchemaEnvironment:
     return SchemaEnvironment(
-        node_version=harness_env.language_version,
+        runtime_version=harness_env.language_version,
         package_manager=harness_env.package_manager,
         install_cmd=" ".join(harness_env.install_cmd),
-        test_cmd=f"{harness_env.package_manager} test",
+        # test_cmd_template is adapter-populated (see TypeScriptAdapter/
+        # PythonAdapter's own detect_environment()) specifically so this
+        # stays a plain field read, never an `if language == ...` here.
+        test_cmd=" ".join(harness_env.test_cmd_template),
     )
 
 
@@ -160,7 +165,7 @@ def validate_candidate(candidate: Candidate, mirrors_dir: Path, work_dir: Path) 
         )
 
     problem_statement = fetch_issue_text(candidate.repo, candidate.issue_number)
-    adapter = TypeScriptAdapter(repo_path=red["dest"])
+    adapter = get_adapter(candidate.language, red["dest"])
     harness_env = adapter.detect_environment(red["dest"])
 
     try:
@@ -174,6 +179,7 @@ def validate_candidate(candidate: Candidate, mirrors_dir: Path, work_dir: Path) 
             fail_to_pass=red["candidate_f2p"],
             pass_to_pass=sorted(red["baseline_passing"]),
             environment=to_schema_environment(harness_env),
+            language=candidate.language,
         )
     except Exception as e:
         return Rejection(candidate, "schema", f"TaskInstance validation failed: {e}")

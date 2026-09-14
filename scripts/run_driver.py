@@ -39,6 +39,12 @@ def main():
         "--instances", default="all", help="Comma-separated indices/instance_ids, or 'all' (default)"
     )
     parser.add_argument("--wall-clock-seconds", type=float, default=None, help="Per-run wall clock budget")
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=1,
+        help="Run each (model, instance) pair this many times (T9: pass@k needs n >= k repeats per task)",
+    )
     parser.add_argument("--out", required=True, help="Output JSONL file (appended to; resumable)")
     args = parser.parse_args()
 
@@ -53,38 +59,47 @@ def main():
             if not line.strip():
                 continue
             rec = json.loads(line)
-            already_done.add((rec["model"], rec["instance_id"]))
+            # .get("repeat", 0): pre-T9 result files never wrote a "repeat"
+            # field -- every row there was implicitly attempt 0.
+            already_done.add((rec["model"], rec["instance_id"], rec.get("repeat", 0)))
 
     with out_path.open("a") as f:
         for model in models:
             for instance in instances:
-                key = (model, instance.instance_id)
-                if key in already_done:
-                    print(f"[skip] {model} / {instance.instance_id} (already in {out_path})")
-                    continue
-                print(f"[run]  {model} / {instance.instance_id}")
-                result = run_and_evaluate(
-                    model,
-                    instance,
-                    MIRRORS_DIR,
-                    wall_clock_seconds=args.wall_clock_seconds,
-                )
-                record = {
-                    "model": model,
-                    "instance_id": result.instance_id,
-                    "status": str(result.status),
-                    "resolved": result.resolved,
-                    "patch_strategy": result.patch_strategy,
-                    "wall_clock_seconds": result.wall_clock_seconds,
-                    "cost_usd": result.cost_usd,
-                    "tokens_used": result.tokens_used,
-                    "fail_to_pass_results": result.fail_to_pass_results,
-                    "pass_to_pass_results": result.pass_to_pass_results,
-                    "stderr_tail": result.stderr_tail,
-                }
-                f.write(json.dumps(record) + "\n")
-                f.flush()
-                print(f"       -> status={result.status} resolved={result.resolved} cost={result.cost_usd}")
+                for repeat in range(args.repeats):
+                    key = (model, instance.instance_id, repeat)
+                    if key in already_done:
+                        print(
+                            f"[skip] {model} / {instance.instance_id} / repeat={repeat} "
+                            f"(already in {out_path})"
+                        )
+                        continue
+                    print(f"[run]  {model} / {instance.instance_id} / repeat={repeat}")
+                    result = run_and_evaluate(
+                        model,
+                        instance,
+                        MIRRORS_DIR,
+                        wall_clock_seconds=args.wall_clock_seconds,
+                    )
+                    record = {
+                        "model": model,
+                        "instance_id": result.instance_id,
+                        "repeat": repeat,
+                        "status": str(result.status),
+                        "resolved": result.resolved,
+                        "patch_strategy": result.patch_strategy,
+                        "wall_clock_seconds": result.wall_clock_seconds,
+                        "cost_usd": result.cost_usd,
+                        "tokens_used": result.tokens_used,
+                        "fail_to_pass_results": result.fail_to_pass_results,
+                        "pass_to_pass_results": result.pass_to_pass_results,
+                        "stderr_tail": result.stderr_tail,
+                    }
+                    f.write(json.dumps(record) + "\n")
+                    f.flush()
+                    print(
+                        f"       -> status={result.status} resolved={result.resolved} cost={result.cost_usd}"
+                    )
 
 
 if __name__ == "__main__":
