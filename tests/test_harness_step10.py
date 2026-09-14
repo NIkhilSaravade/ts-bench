@@ -121,6 +121,51 @@ def test_evaluate_malformed_patch_never_crashes(one_instance):
     assert result.resolved is False
 
 
+def test_evaluate_install_stage_compile_failure_is_resolved_false(monkeypatch, one_instance):
+    """Symmetry check: install() runs before run_tests() and can also raise
+    a compile-type failure (a real, if rare, occurrence in practice -- see
+    docs/step7-real-model-run.md's Bug #2/#3 notes). This must be classified
+    the same way as a run_tests()-stage compile failure, not fall through to
+    the unconditional infra_error branch that only got fixed for run_tests()
+    the first time around. A real install()-stage compile failure isn't
+    reliably reproducible on demand, so this uses a fake adapter instead."""
+
+    class _FakeCompileFailure(Exception):
+        pass
+
+    class _FakeAdapter:
+        def detect_environment(self, repo_path):
+            from harness.language_adapter import Environment
+
+            return Environment(
+                language_version="1",
+                package_manager="fake",
+                test_runner="fake",
+                install_cmd=[],
+                test_cmd_template=[],
+            )
+
+        def install(self, sandbox, env):
+            raise _FakeCompileFailure("pretend javac blew up during install()")
+
+        def run_tests(self, sandbox, env, test_ids=None, timeout=300):
+            raise AssertionError("should never reach run_tests()")
+
+        def parse_results(self, raw_output, runner="fake"):
+            return {}
+
+        def is_compile_failure(self, error):
+            return isinstance(error, _FakeCompileFailure)
+
+    monkeypatch.setattr("harness.eval_runner.get_adapter", lambda language, work_dir: _FakeAdapter())
+
+    result = evaluate(one_instance, one_instance.gold_patch, MIRRORS_DIR)
+    assert result.status == EvalStatus.OK
+    assert result.resolved is False
+    assert result.fail_to_pass_results
+    assert all(v is False for v in result.fail_to_pass_results.values())
+
+
 def test_evaluate_compile_failure_is_resolved_false_not_infra_error(instances):
     """Real-agent-run finding (never exercised before a first real Java run,
     since the gate only ever scores the gold patch, which always compiles):

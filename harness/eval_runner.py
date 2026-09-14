@@ -72,6 +72,26 @@ def evaluate(
         except TimeoutError as e:
             return done(EvalStatus.TIMEOUT, stderr_tail=str(e))
         except Exception as e:
+            # install() runs on bare base_commit, before any patch is
+            # applied -- a compile failure here would mean the instance
+            # itself is broken independent of anything a candidate did, a
+            # real dataset-quality problem rather than "the agent failed."
+            # In practice this should be rare to never for a validated
+            # instance, but the check exists for the same reason it exists
+            # on run_tests() below: never let a real, scoreable outcome be
+            # silently swallowed into the infra_error bucket. If it fires
+            # here on a real (non-transient) basis, that is itself a
+            # significant finding worth investigating, not routing around.
+            if adapter.is_compile_failure(e):
+                f2p = {t: False for t in instance.fail_to_pass}
+                p2p = {t: False for t in instance.pass_to_pass}
+                return done(
+                    EvalStatus.OK,
+                    resolved=False,
+                    fail_to_pass_results=f2p,
+                    pass_to_pass_results=p2p,
+                    stderr_tail=str(e)[-2000:],
+                )
             return done(EvalStatus.INFRA_ERROR, stderr_tail=str(e)[-2000:])
 
         # Steps 3-4: apply the candidate patch, then reset any test files it
