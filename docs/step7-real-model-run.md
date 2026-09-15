@@ -153,8 +153,29 @@ The host machine restarted unexpectedly partway through the run (WSL2 uptime con
 
 ---
 
+## Bug #5: `PythonAdapter` had the identical `is_compile_failure` gap as Java
+
+**Where:** `harness/python_adapter.py`'s `run_tests()`.
+
+**How it was found:** the watcher flagged a new `infra_error` on `codestral:latest` / `arrow-py__arrow-954` / repeat 2. Full stderr showed a real, live model mistake: the candidate patch wrote `def get_locale(name: str) _> "_locale":` — `_>` instead of `->` in a return-type annotation. This is a syntax error, so `pytest` failed at collection time (exit code 4) before any test could even be imported, let alone run.
+
+**Root cause:** `LanguageAdapter.is_compile_failure()`'s base implementation defaults to `False`, on the documented assumption that "a dynamically-typed adapter's own test runner already reports real pass/fail for a brand-new test without needing this at all." That assumption is correct for a runtime error *inside* a test body (pytest still collects and reports that test as failed) but wrong for a **collection-time** syntax/import error, which prevents pytest from even loading the module — mechanically identical to Java's compile-failure problem, just one language layer up (parse-time instead of compile-time). `PythonAdapter` never overrode `is_compile_failure()`, so this fell straight into the same `INFRA_ERROR` bucket Bugs #1-#3 fixed for Java.
+
+**Fix, deliberately different in kind from the Java fixes:** rather than string-matching pytest's output (which is exactly the truncation-fragility trap Bug #2 already burned time on), this uses **pytest's own documented exit code** (`4` = `USAGE_ERROR`, pytest's stable, official classification for a collection-time failure) as the signal. This is immune to truncation by construction — no captured-text window to fall out of. New `PythonCollectionFailure(RuntimeError)` type, `is_compile_failure()` checks `isinstance`, exactly mirroring `JavaCompileFailure`'s contract.
+
+**No `eval_runner.py` changes needed:** its `is_compile_failure()` dispatch is already fully adapter-agnostic from the Java fixes earlier in this same run — this Python fix plugs directly into already-correct generic code. This is the payoff of having fixed the *architecture* (Bugs #1-#3) rather than special-casing Java.
+
+**A known, deliberately unaddressed risk, documented rather than guessed at:** `harness/ts_adapter.py`'s `run_tests()` has the exact same structural shape (`if not output_file.exists(): raise RuntimeError(...)`, no `is_compile_failure` override) — a candidate patch that breaks TypeScript syntax badly enough that vitest/jest can't produce a results file would hit the identical gap. No real occurrence has been observed in this run yet (240 `qwen2.5-coder:14b` attempts across ~130 TS instances completed with zero such failures). Left unfixed for now because, unlike pytest, vitest/jest don't have as clean a single documented exit code for "collection/transform failure specifically" — a fix here would require the same string-matching approach already proven fragile for Java, and guessing at patterns without a real failure to learn from risks introducing an incorrect fix with false confidence. Revisit if/when this actually occurs.
+
+**Verification:** new unit test (`tests/test_python_adapter.py::test_is_compile_failure_checks_exception_type`); full suite green (43/43); stale line removed from `results/oss_leaderboard_run1.jsonl` before restarting.
+
+**Commit:** `e330f1f` — `fix: Python collection failures had the same infra_error gap as Java`.
+
+---
+
 ## Open items / not yet done
 
 - [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
 - [ ] Paid OpenRouter tier: $2-3 pilot to get a real $/attempt number, then the remaining $15-20 budget spent on one larger open-weight model
 - [ ] T10 — leaderboard page + methodology writeup, built against these real numbers instead of `MockModel` numbers
+- [ ] **Known risk, not yet fixed:** `ts_adapter.py` has the same unaddressed `is_compile_failure` gap as Bug #5 described for Python — revisit if a TS instance ever shows an unexplained `infra_error` in a future run
