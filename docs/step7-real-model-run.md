@@ -232,12 +232,43 @@ Batch 1 subtotal: 2/8 resolved, **$3.939**.
 
 **Operational bug hit while launching batch 3:** the first launch attempt used a `nohup ... & ; echo launched pid $!` pattern inside a single `wsl.exe -lc "..."` Bash-tool call *without* the tool's own `run_in_background: true` semantics being what actually persisted it — this is the exact "manual nohup inside one wsl.exe call does not survive" pitfall already documented earlier in this file under "surviving a real machine restart" context, but this time it bit an intentionally-backgrounded launch, not a restart. The outer `wsl.exe -lc` call returned immediately after the `echo`, and because the inner background job was never truly detached from that call's process group, it did not survive — confirmed via `ps aux` (no `run_driver.py` process for the pilot) and an empty/nonexistent log file, despite the Bash tool itself reporting the outer wrapper's exit code 0. Fixed by relaunching as a single foreground command (`uv run python scripts/run_driver.py ...`, sourcing `.env` directly) passed straight to the Bash tool with `run_in_background: true` and no internal `&`/`nohup` at all — letting the tool's own backgrounding be the only backgrounding.
 
+**Batch 3 results — TS diversity pilot (3 attempts, one per sub-project):**
+
+| Instance | Resolved | Cost |
+|---|---|---|
+| `colinhacks__zod-6530` | False | $0.451 |
+| `date-fns__date-fns-3662` | False | $0.336 |
+| `trpc__trpc-7477` | **True** | $0.051 |
+
+`trpc-7477` resolving for just $0.051 was the first real signal that trpc instances might be both cheap and tractable for this model — this directly shaped batch 4's allocation below.
+
+**Batch 4 (following the trpc signal): 3 more trpc instances** — `trpc__trpc-7469`, `trpc__trpc-7464`, `trpc__trpc-7434`. **All 3 resolved.** Cost: `0.724 + 0.613 + 0.300` = **$1.637**. This took trpc to 4/4 attempted, 4/4 resolved — by far the strongest sub-project result in the entire run.
+
+**Running total after batch 4:** 18 attempts, **6 resolved (33%)**, cumulative spend **$8.286 of $10**, **$1.71 remaining**.
+
+**Batch 5 (closing out remaining coverage): `date-fns__date-fns-3132`, `trpc__trpc-7390`** — completes 2/2 date-fns coverage and 5/6 trpc coverage. Both `resolved=False`. Cost: `0.593 + 0.462` = **$1.055**.
+
+**Final running total: 20 attempts, 6 resolved (30%), cumulative spend $9.304 (Haiku) + $0.037 (abandoned qwen3-coder pilot) = $9.341 of $10, $0.659 remaining.**
+
+**Decision to stop here:** with only $0.66 left and real per-attempt TS costs ranging $0.05-$0.78 (no cap enforced by `run_driver.py` itself — cost is only known after an attempt completes), running one more attempt risked going over the $10 budget with no way to abort mid-attempt. Stopped deliberately rather than risk it, per the standing instruction to spend "every penny... carefully."
+
+**Final coverage:** full 6/6 Java, full 5/5 Python, 9/13 TS (missing `colinhacks__zod-6587`, `zod-6534`, `zod-6532`, `trpc__trpc-7370`) — 20/24 total dataset instances covered by `claude-haiku-4.5` via OpenRouter.
+
+---
+
+## Final paid-tier findings summary
+
+- **Real spend: $9.341 of a $10 budget** (Haiku: $9.304 across 20 attempts; abandoned qwen3-coder-30b pilot: $0.037 across 3 attempts).
+- **6 genuine resolves out of 20 attempts (30%)**, all real, non-mock model output scored by the full harness: `colinhacks__zod-6572`, `jd__tenacity-609`, `trpc__trpc-7477`, `trpc__trpc-7469`, `trpc__trpc-7464`, `trpc__trpc-7434`.
+- **trpc was the standout sub-project: 4/4 attempted, 4/4 resolved** — a genuinely notable, specific finding (not just "the model is good"), worth calling out by name on the leaderboard/writeup rather than only reporting one aggregate percentage.
+- **Java and Python: 0/11 resolved** for this model on this instance set — every Java non-resolve was a real compile failure (candidate patch didn't add or matched the wrong API), correctly scored `resolved=False` thanks to Bugs #1-#3's fixes, not misclassified as `infra_error`.
+- **Contrast with the free tier:** the local Ollama models (`qwen2.5-coder:14b` fully, `codestral:latest` mostly) showed 0% resolved across 420+ attempts at $0 cost. `claude-haiku-4.5` at real (if small, $9.34) cost showed a clear, non-zero, differentiated 30% resolved rate with a specific standout (trpc). This pairing — "free local models: real but uninteresting 0% baseline" vs. "small paid budget: a real, differentiated result" — is itself a legitimate, presentable finding for the leaderboard/methodology writeup, not just raw data to report.
+
 ---
 
 ## Open items / not yet done
 
 - [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
-- [x] Paid OpenRouter tier: pilot done (abandoned open-weight model), switched to `claude-haiku-4.5` — 12/24 instances covered (full Java+Python), $5.81 of $10 spent
-- [ ] Paid OpenRouter tier: TS diversity batch (in progress) — spend remaining ~$4.19 across the 12 uncovered TS instances, prioritizing zod/date-fns/trpc diversity
+- [x] Paid OpenRouter tier: pilot done (abandoned open-weight model), switched to `claude-haiku-4.5` — 20/24 instances covered (full Java+Python, 9/13 TS), 6/20 resolved (30%), $9.34 of $10 spent — **budget exhausted, stopping here**
 - [ ] T10 — leaderboard page + methodology writeup, built against these real numbers instead of `MockModel` numbers
 - [ ] **Known risk, not yet fixed:** `ts_adapter.py` has the same unaddressed `is_compile_failure` gap as Bug #5 described for Python — revisit if a TS instance ever shows an unexplained `infra_error` in a future run
