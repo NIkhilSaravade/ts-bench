@@ -23,7 +23,7 @@ def load_instances(selector: str) -> list[TaskInstance]:
             if tok.isdigit():
                 selected.append(lines[int(tok)])
             else:
-                matches = [line for line in lines if f'"instance_id": "{tok}"' in line]
+                matches = [line for line in lines if json.loads(line).get("instance_id") == tok]
                 if not matches:
                     raise SystemExit(f"No instance matching {tok!r}")
                 selected.append(matches[0])
