@@ -27,6 +27,26 @@ from harness.language_adapter import Environment, LanguageAdapter
 
 _VENV_DIRNAME = ".tsbench-venv"
 
+# pytest's own documented exit codes (https://docs.pytest.org/en/stable/
+# reference/exit-codes.html): 4 = USAGE_ERROR, which pytest also uses for a
+# genuine collection-time failure (an import/syntax error in a test file or
+# conftest.py) -- distinct from 1 (real test failures) and 5 (no tests
+# collected, but the suite itself loaded fine). Unlike Java's Maven output
+# (see java_adapter.py's JavaCompileFailure, added after a truncation bug),
+# this needs no string-matching against captured output at all: pytest's
+# exit code IS the classification, stable and immune to truncation by
+# construction. Caught live: a real model patch introduced a syntax error
+# (`_>` instead of `->` in a return-type annotation), which made pytest fail
+# to even import the module at collection time -- a genuine "the agent's
+# patch doesn't parse" failure, not an infra problem.
+_PYTEST_USAGE_ERROR_EXIT_CODE = 4
+
+
+class PythonCollectionFailure(RuntimeError):
+    """pytest couldn't even collect tests -- a real, scoreable outcome (the
+    candidate patch broke the module enough that it doesn't import/parse),
+    not a genuine infra problem. See is_compile_failure()."""
+
 
 class PythonAdapter(LanguageAdapter):
     def __init__(self, repo_path: Path, package_path: Path | None = None):
@@ -95,9 +115,10 @@ class PythonAdapter(LanguageAdapter):
         result = sandbox.run(cmd, cwd=self.package_path, timeout=timeout)
 
         if not output_file.exists():
-            raise RuntimeError(
-                f"pytest produced no output file (exit {result.returncode}).\nstderr:\n{result.stderr}"
-            )
+            message = f"pytest produced no output file (exit {result.returncode}).\nstderr:\n{result.stderr}"
+            if result.returncode == _PYTEST_USAGE_ERROR_EXIT_CODE:
+                raise PythonCollectionFailure(message)
+            raise RuntimeError(message)
         return output_file.read_text()
 
     def parse_results(self, raw_output: str, runner: str = "pytest") -> dict[str, bool]:
@@ -106,6 +127,9 @@ class PythonAdapter(LanguageAdapter):
         # exactly the canonical "{rel_path}::{name}" shape every other
         # adapter has to construct by hand -- nothing to build here.
         return {t["nodeid"]: t["outcome"] == "passed" for t in data.get("tests", [])}
+
+    def is_compile_failure(self, error: Exception) -> bool:
+        return isinstance(error, PythonCollectionFailure)
 
     # --- private helpers ---
 

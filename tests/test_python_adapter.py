@@ -1,6 +1,19 @@
 import json
 
-from harness.python_adapter import PythonAdapter
+from harness.python_adapter import PythonAdapter, PythonCollectionFailure
+
+
+def test_is_compile_failure_checks_exception_type():
+    """Caught live in the free-tier leaderboard run: a real model patch
+    introduced a syntax error (`_>` instead of `->`), which made pytest fail
+    to even collect any test (exit 4, pytest's own USAGE_ERROR code) --
+    a real, scoreable "the agent's patch doesn't parse" outcome, not an
+    infra problem. Keyed off exception type, not string-matching output
+    (pytest's exit code is a stable, documented, truncation-immune signal,
+    unlike Maven's free-text banners -- see java_adapter.py's history)."""
+    adapter = PythonAdapter(repo_path=None)
+    assert adapter.is_compile_failure(PythonCollectionFailure("boom")) is True
+    assert adapter.is_compile_failure(RuntimeError("boom")) is False
 
 
 def test_parse_results_maps_pytest_nodeids_directly():
