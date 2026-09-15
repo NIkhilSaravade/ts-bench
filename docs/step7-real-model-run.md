@@ -173,6 +173,18 @@ The host machine restarted unexpectedly partway through the run (WSL2 uptime con
 
 ---
 
+## Investigated and ruled out: 0% resolved rate after 420/960 attempts
+
+**What was checked:** after `qwen2.5-coder:14b` (240/240) and most of `codestral:latest` completed, the resolved rate across *every* instance and both models was exactly 0%. This warranted real investigation rather than being waved off as "these are just weak models," especially since `colinhacks__zod-6572` had shown a genuine `resolved=True` for this exact model during the earlier timing pilot but 0/10 in the actual run.
+
+**Investigation:** pulled the full `EvalResult` for a `zod-6572` non-resolve and found `pass_to_pass` contained two near-identical keys for what looked like the same test (`...::re-exports zod/mini verbatim` and `...::src/tests/index.test.ts > re-exports zod/mini verbatim`), one `True` and one `False` — initially looked like a scoring bug (a spurious duplicate key sinking an otherwise-correct fix). Traced `ts_adapter.py`'s `parse_results()` (`name = " > ".join([*a["ancestorTitles"], a["title"]])`) to understand where the two formats come from, then checked whether this pattern is a live parsing artifact or baked into the dataset — **confirmed via `datasets/instances.jsonl` directly that both key formats already exist in this instance's stored `pass_to_pass` list**, meaning this has been present since the original T3 mining, unchanged by anything in this session, and was already there when T4/T6's gate first validated this exact instance's *gold* patch to `resolved=True`.
+
+**Conclusion: not a bug.** These are two genuinely distinct vitest test executions (most likely two different vitest workspace "projects" testing the same-named assertion under different configurations) that the *gold* patch satisfies both of, and a real candidate patch can legitimately fix one without the other — a stricter, not incorrect, correctness bar. The pilot's one `resolved=True` on this exact model+instance is most plausibly ordinary local-inference non-determinism (`llama.cpp`-backed inference isn't perfectly bit-reproducible across process runs even at `temperature=0`), not evidence of a scoring defect.
+
+**Also checked:** 0% held across every one of the 24 instances, not just TS ones with this dual-key property — including Python (`arrow-py`, `jd/tenacity`, no dual-key issue exists in `pytest`'s parser at all) and the 6 deliberately-hard T14-salvaged Java instances. Consistent with T8's own real-money finding that even `claude-sonnet-4-5` (a far stronger, proprietary model) resolved 0/2 real zod attempts — a near-zero resolved rate for 14B-22B local open-weight models on a small, genuinely hard SWE-bench-style task set is plausible, real data, not a broken pipeline. Revisit if `qwen3:14b`/`gpt-oss:20b` also show exactly 0% across the board with no variation at all (that pattern specifically would be more suspicious than a low-but-nonzero or all-different rate).
+
+---
+
 ## Open items / not yet done
 
 - [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
