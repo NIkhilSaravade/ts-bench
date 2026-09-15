@@ -123,6 +123,36 @@ Both Bug #2 and Bug #3's investigations involved running one-off diagnostic Pyth
 
 ---
 
+## Operational note: surviving a real machine restart
+
+The host machine restarted unexpectedly partway through the run (WSL2 uptime confirmed at 1 minute when investigated). Both the `run_driver.py` process and Ollama's `llama-server` were gone — background OS processes started from a Claude Code session do not survive a full machine reboot (this is expected; they aren't registered as a persistent service).
+
+**Recovery, in order:**
+1. Confirmed via `ps aux` that neither the run process nor Ollama were alive.
+2. Confirmed via `wc -l results/oss_leaderboard_run1.jsonl` that progress was safely persisted at 305/960 completed attempts, with `grep -c infra_error` showing zero — both compile-failure fixes had held for the ~95 attempts processed between the restart-doc update and the actual reboot.
+3. Restarted Ollama (`ollama serve`, backgrounded) since it isn't running as a systemd service in this WSL2 setup — `systemctl` itself wasn't reachable ("Failed to connect to bus"), consistent with systemd not being active this session.
+4. Re-ran the identical `run_driver.py` command. Resumability worked exactly as designed: it picked up at attempt 306, skipping the 305 already-recorded `(model, instance_id, repeat)` triples with zero re-work and zero duplicates.
+
+**Takeaway:** the resumable-JSONL design (T9) plus this run's incremental-commit discipline meant a full, unplanned machine restart cost zero real progress — a real (not just theoretical) validation of that design choice.
+
+---
+
+## Bug #4 (operational, not code): restarting Ollama as the wrong user silently served zero models, corrupting 230 attempts
+
+**What happened:** after the machine restart above, `ollama serve` wasn't running and `systemctl`/`sudo` required a password unavailable in this session, so it was started manually as the current shell's user (`nikhil`) via plain `nohup ollama serve &`. This looked successful (`curl .../api/tags` returned 200) and the leaderboard run was resumed. The watcher's next check showed **127 new `infra_error` entries within a single 15-minute window** — every single attempt since the resume, all with the same message: `litellm.NotFoundError: Ollama_chatException - {"error":"model 'codestral:latest' not found"}`.
+
+**Root cause:** the real, systemd-managed Ollama service (`/etc/systemd/system/ollama.service`) runs as a dedicated `ollama` user, with `User=ollama` and `Group=ollama`, storing all pulled models under `/usr/share/ollama/.ollama/models`. Starting `ollama serve` manually as `nikhil` gave a perfectly healthy server — it just pointed at the default, empty `/home/nikhil/.ollama/models` instead, so `ollama list` (and every model-load request) saw zero models. Since each "model not found" error surfaces near-instantly (`wall_clock_seconds: 0.0`), the run raced through **230 attempts** (more than the 127 the watcher first flagged, since more piled up before the process was stopped) before being caught and killed.
+
+**Why the watcher caught it fast:** this is exactly why `scratch/watch_leaderboard_run.sh` checks for `infra_error` occurrences every 15 minutes rather than only checking at the very end — 230 wasted (near-instant, so no real wall-clock cost) attempts is a data-integrity problem, not a performance one, but it would have been far worse to discover only after the "full" 960-attempt run had already reported completion.
+
+**Fix (operational, not a code change):** confirmed no passwordless `sudo` was available (correctly did not try to work around that), then started Ollama as the current user but pointed explicitly at the real model directory via `OLLAMA_MODELS=/usr/share/ollama/.ollama/models nohup ollama serve &` — the directory is world-readable (`drwxr-xr-x`, owned by `ollama:ollama`), so this needs no elevated privilege, only the correct environment variable. Verified via `ollama list` (all 4 models visible) and a real `curl .../api/generate` inference call before trusting it.
+
+**Remediation applied:** removed all 230 lines from `results/oss_leaderboard_run1.jsonl` whose `stderr_tail` contained `"not found"` (a precise filter — distinct from the two genuine compile-failure `infra_error`s fixed earlier, which had already been corrected and were not present at this point). Verified the file returned to exactly the pre-incident state: 305 lines, zero `infra_error`. Restarted the run; confirmed a fresh attempt landed as real, non-error output before re-arming the watcher.
+
+**Lesson for next time:** if this machine restarts again, do not `ollama serve` in a plain new shell and assume success from a 200 status on `/api/tags` — that only proves the server is *up*, not that it's pointed at the right model store. Check `ollama list` returns the expected models before resuming anything, every time.
+
+---
+
 ## Open items / not yet done
 
 - [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
