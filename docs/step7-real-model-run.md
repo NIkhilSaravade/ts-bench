@@ -185,9 +185,59 @@ The host machine restarted unexpectedly partway through the run (WSL2 uptime con
 
 ---
 
+## Pivot: prioritizing the paid OpenRouter tier over waiting on the free tier
+
+**What changed:** by 420/960 free-tier attempts, both fully-completed models (`qwen2.5-coder:14b`, most of `codestral:latest`) showed a 0% resolved rate (see "Investigated and ruled out" above — real, not a bug). When asked directly, this was named plainly for what it was: lots of *mechanical* progress (5 real scoring bugs found and fixed, 420 clean attempts, zero data loss through two operational incidents) but zero *result* progress — no leaderboard with an actual differentiated story yet, since a 0%-across-the-board table says nothing interesting. Given a hard, explicit $10 OpenRouter budget ("use every penny carefully... at the end we should have some good findings"), the decision was to stop waiting on the free tier to *maybe* produce a nonzero number and instead spend paid-tier budget now on a model with a real chance of resolving at least some instances — the free-tier Ollama run kept running in the background throughout, unaffected.
+
+**Real OpenRouter pricing, queried directly** (`GET https://openrouter.ai/api/v1/models`, not guessed) informed model choice: `anthropic/claude-haiku-4.5` — a real, current, still-cheap-relative-to-flagship model — was picked, over a much cheaper open-weight model, after the open-weight pilot below showed why "cheap but unproven" isn't actually a good trade against a fixed, small budget.
+
+---
+
+## Abandoned: `qwen/qwen3-coder-30b-a3b-instruct` pilot (0/3 resolved, real but discouraging signal)
+
+**What was tried:** a 3-attempt pilot (`arrow-py__arrow-954`, `jd__tenacity-654`, `jhy__jsoup-2602` — one per language) against `openrouter/qwen/qwen3-coder-30b-a3b-instruct`, chosen for its very low real cost (~$0.0125/attempt, confirmed from actual OpenRouter billing after the pilot, not estimated beforehand).
+
+**Result:** `scratch/openrouter_pilot.jsonl` — 3/3 non-resolved, **all** sub-targets (`fail_to_pass` and `pass_to_pass`) `False`, not near-misses on a subset. Total real cost: **$0.037**.
+
+**Decision:** rather than spend more of a fixed $10 budget running a broader (still-cheap) pilot to see if this was bad luck on 3 instances, the call was made to abandon this model outright and switch straight to a model with a track record of actually solving TS-Bench instances (`claude-haiku-4.5` — already shown to resolve `zod-6572` in this repo's own T7/timing-pilot data). With only $10 total and a stated goal of ending with "some good findings" rather than just a spend log, a 0/3-with-no-partial-credit result was treated as a real (if small-sample) signal not worth chasing further at this model's price point, rather than as noise to average away.
+
+---
+
+## Paid tier: `claude-haiku-4.5` via OpenRouter — batches and real costs
+
+All runs: `uv run python scripts/run_driver.py --models openrouter/anthropic/claude-haiku-4.5 --instances <ids> --repeats 1 --out results/openrouter_haiku_run1.jsonl`, real API calls, real billed cost taken directly from LiteLLM's `cost_usd` field (which reflects OpenRouter's actual per-token pricing for this model, not an estimate).
+
+**Batch 1 (pilot + first full pass, 8 attempts — 2 TS, 5 Python, 1 Java):**
+
+| Instance | Language | Resolved | Cost (USD) |
+|---|---|---|---|
+| `colinhacks__zod-6572` | TS | **True** | 0.158 |
+| `arrow-py__arrow-954` | Python | False | 0.771 |
+| `arrow-py__arrow-1222` | Python | False | 0.357 |
+| `jd__tenacity-654` | Python | False | 0.281 |
+| `jd__tenacity-615` | Python | False | 0.531 |
+| `jd__tenacity-609` | Python | **True** | 0.778 |
+| `jhy__jsoup-2602` | Java | False (real compile failure at test-compile — candidate didn't add the needed API, correctly scored `resolved=False` not `infra_error`, confirming Bug #1's fix works end-to-end on a real paid-model attempt) | 0.405 |
+| `stleary__JSON-java-1068` | Java | False | 0.659 |
+
+Batch 1 subtotal: 2/8 resolved, **$3.939**.
+
+**Discovered during batch 1: `scripts/run_driver.py`'s named-instance selector was silently broken.** See the dedicated bug entry below — this is what surfaced it.
+
+**Batch 2 (remaining 4 Java instances — completes full 6/6 Java + 5/5 Python coverage):** `jhy__jsoup-2598`, `jhy__jsoup-2595`, `stleary__JSON-java-1044`, `stleary__JSON-java-814`. All 4 `resolved=False` (three genuine Java compile failures on main-source-file edits, one test failure) — 0/4 resolved. Cost: `0.7137 + 0.4178 + 0.0586 + 0.6448` = **$1.834**.
+
+**Running total after batch 2:** 12 attempts, **2 resolved** (`zod-6572`, `tenacity-609`), cumulative Haiku spend **$5.774**, plus the abandoned qwen3-coder pilot's $0.037 → **$5.811 of $10 spent**, **$4.189 remaining**. Full Java (6/6) and Python (5/5) instance coverage achieved; TS coverage was still only 1/13 at this point.
+
+**Batch 3 (TS diversity pilot, launched next):** one attempt each from the three uncovered TS sub-projects — `colinhacks__zod-6530`, `date-fns__date-fns-3662`, `trpc__trpc-7477` — specifically to learn real TS $/attempt (Java/Python costs varied 6x, $0.06-$0.78, so TS cost was not assumed) before committing the remaining ~$4.19 across the other 9 uncovered TS instances (3 more zod, 1 more date-fns, 5 more trpc).
+
+**Operational bug hit while launching batch 3:** the first launch attempt used a `nohup ... & ; echo launched pid $!` pattern inside a single `wsl.exe -lc "..."` Bash-tool call *without* the tool's own `run_in_background: true` semantics being what actually persisted it — this is the exact "manual nohup inside one wsl.exe call does not survive" pitfall already documented earlier in this file under "surviving a real machine restart" context, but this time it bit an intentionally-backgrounded launch, not a restart. The outer `wsl.exe -lc` call returned immediately after the `echo`, and because the inner background job was never truly detached from that call's process group, it did not survive — confirmed via `ps aux` (no `run_driver.py` process for the pilot) and an empty/nonexistent log file, despite the Bash tool itself reporting the outer wrapper's exit code 0. Fixed by relaunching as a single foreground command (`uv run python scripts/run_driver.py ...`, sourcing `.env` directly) passed straight to the Bash tool with `run_in_background: true` and no internal `&`/`nohup` at all — letting the tool's own backgrounding be the only backgrounding.
+
+---
+
 ## Open items / not yet done
 
 - [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
-- [ ] Paid OpenRouter tier: $2-3 pilot to get a real $/attempt number, then the remaining $15-20 budget spent on one larger open-weight model
+- [x] Paid OpenRouter tier: pilot done (abandoned open-weight model), switched to `claude-haiku-4.5` — 12/24 instances covered (full Java+Python), $5.81 of $10 spent
+- [ ] Paid OpenRouter tier: TS diversity batch (in progress) — spend remaining ~$4.19 across the 12 uncovered TS instances, prioritizing zod/date-fns/trpc diversity
 - [ ] T10 — leaderboard page + methodology writeup, built against these real numbers instead of `MockModel` numbers
 - [ ] **Known risk, not yet fixed:** `ts_adapter.py` has the same unaddressed `is_compile_failure` gap as Bug #5 described for Python — revisit if a TS instance ever shows an unexplained `infra_error` in a future run
