@@ -301,4 +301,5 @@ Batch 1 subtotal: 2/8 resolved, **$3.939**.
 - [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
 - [x] Paid OpenRouter tier: pilot done (abandoned open-weight model), switched to `claude-haiku-4.5` — 20/24 instances covered (full Java+Python, 9/13 TS), 6/20 resolved (30%), $9.34 of $10 spent — **budget exhausted, stopping here**
 - [ ] T10 — leaderboard page + methodology writeup, built against these real numbers instead of `MockModel` numbers
-- [ ] **Known risk, not yet fixed:** `ts_adapter.py` has the same unaddressed `is_compile_failure` gap as Bug #5 described for Python — revisit if a TS instance ever shows an unexplained `infra_error` in a future run
+- [x] **A TS `infra_error` did occur** (Bug #6) — but it was `_build_test_cmd()`'s use of `npx` breaking on zod's npm/pnpm workspace-field mismatch, not the predicted `is_compile_failure` gap. Fixed by invoking runner binaries directly.
+- [ ] **Known risk, still not yet fixed:** `ts_adapter.py` still has no `is_compile_failure` override, same gap as Bug #5 described for Python — still no real occurrence of *that specific* failure mode observed; revisit if one appears
