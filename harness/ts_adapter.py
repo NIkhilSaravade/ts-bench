@@ -180,12 +180,40 @@ class TypeScriptAdapter(LanguageAdapter):
     def _node_bin_dir(self, version: str) -> Path:
         """Resolve the bin dir for `version` via nvm, installing it (and
         enabling corepack for it, so pnpm/yarn shims exist under that
-        specific node install) if it isn't already present."""
-        script = (
+        specific node install) if it isn't already present.
+
+        Checks purely locally first (`nvm which`, no network) before ever
+        falling back to `nvm install`. This matters because `nvm install
+        <version>` resolves its version argument against nvm's REMOTE index
+        BEFORE checking whether it's already installed locally at all
+        (confirmed directly in nvm.sh: `nvm_remote_version()` runs ahead of
+        `nvm_is_version_installed()`) -- so a transient network hiccup
+        during that remote lookup fails the whole call with a misleading
+        "Version '24' not found" error, even when 24 has been installed
+        the entire time. Caught live: 30 consecutive real attempts failed
+        this way mid-run once network flaked, right after ~500 identical
+        calls had succeeded (docs/step7-real-model-run.md). `nvm which`
+        only reads nvm's local alias/versions directory -- no network --
+        so this removes the network dependency from every call except the
+        genuinely-first one for a given version.
+        """
+        which_script = f'export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm which {version}'
+        result = subprocess.run(["bash", "-lc", which_script], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            bin_dir = Path(result.stdout.strip().splitlines()[-1]).parent
+            # corepack enable is local and idempotent (writes shims into this
+            # node install's own bin dir) -- cheap to just always ensure.
+            corepack_script = (
+                f'export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm exec {version} corepack enable'
+            )
+            subprocess.run(["bash", "-lc", corepack_script], capture_output=True, text=True)
+            return bin_dir
+
+        install_script = (
             'export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; '
             f"nvm install {version} >&2 && nvm exec {version} corepack enable >&2 && nvm which {version}"
         )
-        result = subprocess.run(["bash", "-lc", script], capture_output=True, text=True)
+        result = subprocess.run(["bash", "-lc", install_script], capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"could not resolve node {version} via nvm:\n{result.stderr}")
         return Path(result.stdout.strip().splitlines()[-1]).parent
