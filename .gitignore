@@ -7,3 +7,12 @@ mirrors/
 instances/
 scratch/
 .env
+
+# Large raw run-driver output (can grow past GitHub's 100MB hard limit for a
+# full 960-attempt matrix). Postgres (scripts/load_results.py) is the durable,
+# queryable store for this data now -- these stay local only for
+# run_driver.py's own resumability. Small result files (pilots, smoke tests)
+# are fine to keep tracked.
+results/oss_leaderboard_run1.jsonl
+results/t9_run1.jsonl
+results/t9_run2.jsonl
