@@ -205,7 +205,9 @@ The host machine restarted unexpectedly partway through the run (WSL2 uptime con
 
 **Relationship to the previously-documented TS risk:** the "known risk" note below (TS lacking a `is_compile_failure` override) is still real and still unaddressed — this bug happened to *also* produce an `infra_error` on a TS instance, but for a completely different reason (a tooling-invocation bug, not a candidate-patch compile failure). Both remain worth tracking separately; this entry doesn't close that one out.
 
-**Commit:** (pending — see below).
+**Correction, found later (see Bug #8 below):** the actual underlying trigger for `npm exec`'s `getWorkspaces()` failure here was never really "zod declares an npm-style `workspaces` field" — that was a real, contributing fact but not the operative cause. The real cause, found while investigating Bug #8, is this **machine's own global `~/.npmrc` containing `workspaces=true`**, which forces every npm-family command into workspace mode regardless of the target project. The `_build_test_cmd()` fix (bypassing `npx` entirely) remains valid and worth keeping on its own merits — it removes an unnecessary indirection — but Bug #8's fix (explicitly forcing `npm_config_workspaces=false`) is the fix that actually addresses the root cause directly, and would have prevented this bug too, independent of the `npx` change.
+
+**Commit:** `b5cd598` (the `_build_test_cmd()` fix); root cause corrected by Bug #8's investigation, `npm_config_workspaces=false` fix landing there.
 
 ---
 
@@ -232,6 +234,28 @@ The host machine restarted a second time partway through the free-tier run (this
 **Remediation applied to the in-flight run:** removed all 31 bad lines (the original 1 + this batch's 30) from `results/oss_leaderboard_run1.jsonl` — 530 lines remaining, 0 `infra_error`; resumed under the fixed code.
 
 **Lesson, corrected from the first (wrong) conclusion:** a single occurrence of an "environment flake" that can't be reproduced on the spot is not automatically safe to dismiss without reading the actual code path involved — the first investigation checked that node 24 *was* installed and resolvable, but didn't check *why* the specific call that failed would ever depend on the network in the first place. Reading `nvm.sh` itself (rather than trusting the manual re-check's clean result as the final word) is what actually found the real, fixable design issue underneath what looked, the first time, like simple bad luck.
+
+**Commit:** (pending — see below).
+
+---
+
+## Bug #8: the actual root cause of both `npm`-family failures — a global `~/.npmrc` with `workspaces=true`
+
+**How it was found:** immediately after Bug #7's fix, resumed the run and got a brand-new `infra_error` within 1 attempt: `ollama_chat/qwen3:14b` / `date-fns__date-fns-3662` / repeat 0 — `"install failed:\nnpm ERR! No workspaces found!"`, this time from `install()` itself (`npm ci` failing outright), not `run_tests()`. `date-fns` has no `workspaces` field and no `packageManager` field at all — confirmed directly against its real `base_commit` — so Bug #6's "zod declares an npm-style workspaces field" explanation couldn't apply here. This forced a deeper investigation rather than pattern-matching it onto an already-closed bug.
+
+**Investigation, done properly this time — read npm's own source, not just its error text:** reproduced against a fresh clone of `date-fns__date-fns-3662`'s real `base_commit`, zero candidate patch, with the harness's exact PATH construction (`node_bin_dir:ambient_PATH`) to rule out a version mismatch. `npm ci` failed identically under both the ambient npm (12.0.2) and date-fns's own correctly-pinned npm (10.2.4) — genuinely deterministic, not version-dependent. Read the actual npm debug log's stack trace (`~/.npm/_logs/*.log`) down to the real npm source files it named: `lib/arborist-cmd.js` shows `static workspaces = true` as the **class-level default for the entire arborist command family** (`install`, `ci`, etc.) in this npm version; `lib/base-command.js`'s dispatch checks `hasWsConfig = config.get('workspaces') || config.get('workspace').length` to decide whether to route into workspace mode; `lib/workspaces/get-workspaces.js` throws `"No workspaces found!"` whenever the resolved workspace set is empty, **with no exemption for "the project just doesn't have any workspaces and nobody asked for workspace mode."**
+
+**The actual root cause:** `~/.npmrc` — this machine's own global npm config file, entirely outside this repo's version control — contains `workspaces=true`. That's a real, standard npm config key (`npm config get workspaces`), and once set at the user/global level, it silently forces **every** npm-family command (`ci`, `install`, `exec`) into workspace-resolution mode, for every project, regardless of whether that project has ever declared a single workspace. Verified directly: `env | grep -i workspace` showed nothing (ruling out an environment-variable cause), but `cat ~/.npmrc` showed the line plainly.
+
+**This also retroactively corrects Bug #6's stated root cause.** Bug #6 attributed the `npx vitest run` failure on zod to "zod declares an npm-style `workspaces` field while being pnpm-managed" — a true fact, but not the actual trigger: the real trigger, confirmed here, is this same global `~/.npmrc` setting forcing `npm exec` into workspace mode regardless. zod's own `workspaces` field was incidental, not causal — a genuinely non-workspace repo (date-fns) hit the exact same underlying mechanism. Bug #6's *fix* (bypassing `npx` with a direct binary invocation) remains valid and worth keeping — it's a real simplification, independent of this — but its root-cause writeup was wrong, and is corrected in place above rather than left standing.
+
+**Fix:** `TypeScriptAdapter._pinned_env()` now unconditionally sets `npm_config_workspaces: "false"` in every subprocess's environment — overriding whatever the ambient `~/.npmrc` (on this machine, or any other machine this ever runs on) happens to say, rather than depending on the environment being correctly configured. Verified this doesn't affect pnpm/yarn-managed repos (an npm-specific env var is simply irrelevant to those tools) by re-running `evaluate()` against `colinhacks__zod-6530` after the fix — still `status=ok`, unaffected.
+
+**Verification:** full suite green (43/43); real end-to-end `evaluate()` re-run against `date-fns__date-fns-3662` with an empty patch now returns `status=ok` (previously `infra_error`); confirmed the same fix leaves `zod-6530` (pnpm-managed) unaffected.
+
+**Remediation applied to the in-flight run:** removed the 1 bad line (531 → 530), resumed under the fixed code.
+
+**A broader lesson worth stating plainly:** this is the second time in a row (after Bug #7) that a "the manual re-check came back clean" or "here's a plausible-sounding explanation" moment turned out to be incomplete once the actual library source was read rather than inferred from error text and one data point. Two real, environment-level misconfigurations (a global `~/.npmrc`, and `nvm install`'s network-first resolution order) were sitting underneath what first looked like TS-Bench-specific bugs. Neither would have been found by pattern-matching against the dataset or the candidate patches — only by treating the failing command as a real program to trace through, in its own source, exactly the same discipline Bug #2 already established for Maven's own diagnostics.
 
 **Commit:** (pending — see below).
 

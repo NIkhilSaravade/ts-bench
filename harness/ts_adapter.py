@@ -174,6 +174,21 @@ class TypeScriptAdapter(LanguageAdapter):
                 # actually reads to pick a matching node:<major> image, so
                 # this adapter never has to know which Sandbox it's talking to.
                 "TSBENCH_NODE_VERSION": version,
+                # This machine's own ~/.npmrc carries `workspaces=true`
+                # globally -- outside version control, outside this repo's
+                # control, and silently forces EVERY npm invocation (`npm
+                # ci`, `npm exec`, ...) into workspace mode, even against a
+                # plain single-package repo with no "workspaces" field at
+                # all. npm then throws "No workspaces found!" the moment it
+                # tries to resolve an empty workspace set. Caught live on
+                # date-fns__date-fns-3662's `npm ci` (env-independent repro:
+                # fails identically with a fresh clone, no candidate patch,
+                # and both the ambient npm 12 and the repo's own pinned npm
+                # 10.2.4). This explicit override wins regardless of what
+                # any ambient .npmrc says, on this machine or any other --
+                # pnpm/yarn simply ignore an npm-specific env var, so it's
+                # harmless for those managers too.
+                "npm_config_workspaces": "false",
             }
         return self._pinned_env_cache[version]
 
