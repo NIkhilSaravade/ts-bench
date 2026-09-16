@@ -215,6 +215,14 @@ The host machine restarted a second time partway through the free-tier run (this
 
 ---
 
+## Operational note: one transient `nvm install` flake, correctly classified as `infra_error`
+
+After resuming post-Bug-#6 fix, the watcher caught one more `infra_error` at 527/960: `ollama_chat/qwen3:14b` / `colinhacks__zod-6532` / repeat 6 — `"could not resolve node 24 via nvm:\nVersion '24' not found - try nvm ls-remote to browse available versions."`, from `_node_bin_dir()`'s `nvm install {version} && nvm exec {version} corepack enable && nvm which {version}` script.
+
+**Checked immediately, not just assumed transient:** ran `nvm ls` and the exact same script by hand right after — node 24 was correctly installed and resolvable both times, no error. This is a one-off flake in `nvm install`'s own remote-index check (it appears to touch the network even for an already-installed version in some cases), not a persistent environment problem and not a code bug: `is_compile_failure()` correctly stayed `False` here (this has nothing to do with a candidate patch), so `INFRA_ERROR` is exactly the right classification — unlike Bug #6, no fix was needed. Removed the 1 bad line (526 remaining, matching expectations) and resumed; a fresh `nvm which 24` on the next attempt after resuming came back clean.
+
+---
+
 ## Pivot: prioritizing the paid OpenRouter tier over waiting on the free tier
 
 **What changed:** by 420/960 free-tier attempts, both fully-completed models (`qwen2.5-coder:14b`, most of `codestral:latest`) showed a 0% resolved rate (see "Investigated and ruled out" above — real, not a bug). When asked directly, this was named plainly for what it was: lots of *mechanical* progress (5 real scoring bugs found and fixed, 420 clean attempts, zero data loss through two operational incidents) but zero *result* progress — no leaderboard with an actual differentiated story yet, since a 0%-across-the-board table says nothing interesting. Given a hard, explicit $10 OpenRouter budget ("use every penny carefully... at the end we should have some good findings"), the decision was to stop waiting on the free tier to *maybe* produce a nonzero number and instead spend paid-tier budget now on a model with a real chance of resolving at least some instances — the free-tier Ollama run kept running in the background throughout, unaffected.
