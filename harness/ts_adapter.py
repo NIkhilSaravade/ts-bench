@@ -234,19 +234,38 @@ class TypeScriptAdapter(LanguageAdapter):
                 raise
             return self._detect_test_runner(repo_path)
 
+    def _runner_bin(self, runner: str) -> str:
+        """Path to the runner's own binary, already linked by install() into
+        this package's node_modules/.bin -- resolved relative to
+        run_tests()'s cwd (self.package_path), not invoked via `npx`.
+
+        `npx <runner>` (npm's own `exec` command) is fragile here: a repo
+        can declare an npm-style `"workspaces"` field in package.json while
+        actually being pnpm-managed (e.g. zod). npm's `exec` then tries its
+        own workspace resolution and fails with `Error: No workspaces
+        found!` -- npm's own package-manager-mismatch confusion, nothing to
+        do with the candidate patch or test outcome. The binary itself is
+        already on disk after a successful install() regardless of which
+        package manager put it there, so invoking it directly sidesteps the
+        whole class of bug. Confirmed by direct repro against zod-6530's
+        real base_commit: `npx vitest run` -> `No workspaces found!`,
+        `./node_modules/.bin/vitest run` -> real JSON output, same install.
+        """
+        return f"./node_modules/.bin/{runner}"
+
     def _build_test_cmd(self, runner: str, test_ids: list[str] | None) -> list[str]:
         if runner == "vitest":
-            cmd = ["npx", "vitest", "run", "--reporter=json", "--outputFile=vitest-results.json"]
+            cmd = [self._runner_bin(runner), "run", "--reporter=json", "--outputFile=vitest-results.json"]
             if test_ids:
                 cmd += ["-t", "|".join(test_ids)]
             return cmd
         if runner == "jest":
-            cmd = ["npx", "jest", "--json", "--outputFile=jest-results.json"]
+            cmd = [self._runner_bin(runner), "--json", "--outputFile=jest-results.json"]
             if test_ids:
                 cmd += test_ids
             return cmd
         if runner == "mocha":
-            cmd = ["npx", "mocha", "--reporter", "json"]
+            cmd = [self._runner_bin(runner), "--reporter", "json"]
             if test_ids:
                 cmd += ["--grep", "|".join(test_ids)]
             return cmd
