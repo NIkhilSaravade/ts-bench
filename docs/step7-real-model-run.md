@@ -342,9 +342,33 @@ Batch 1 subtotal: 2/8 resolved, **$3.939**.
 
 ---
 
+## Decision: free-tier run stopped early at 647/960
+
+**Stopped by choice, not by failure.** After a third unplanned machine restart, the run was resumed and then deliberately stopped at **647 of 960 attempts**. The reason: it had stopped producing new information. Zero resolves in 647 attempts, across three models from three labs, was already the finding, and the remaining ~313 attempts would have repeated it.
+
+**Final tallies at the stopping point** (all 0 `infra_error`; every attempt is a real, correctly-scored result):
+
+| Model | Attempts | Resolved |
+|---|---|---|
+| `qwen2.5-coder:14b` | 240/240 (complete) | 0 |
+| `codestral:latest` | 240/240 (complete) | 0 |
+| `qwen3:14b` | 167/240 (partial) | 0 |
+| `gpt-oss:20b` | 0/240 (never started) | — |
+
+**Caveats to state honestly wherever these numbers are used:**
+- `gpt-oss:20b` has **no data at all**. It must not appear on the leaderboard as a 0%; it was simply not run.
+- `qwen3:14b` is partial (167 of 240). It is 0/167, not 0/240, and the instance coverage is uneven (the run walks instances in dataset order, so its later instances are under-sampled).
+- The claim this data supports is narrow: *under this plain bash-loop scaffold, on this 24-instance set, these three local open-weight models resolved 0 of 647 attempts.* It does not show these models cannot solve such tasks under a different scaffold — which is exactly the question `docs/langgraph-agent-track-plan.md` is scoped to test.
+
+**Data preserved:** all 647 rows are in `results/oss_leaderboard_run1.jsonl` (local only, gitignored for size) and in Postgres (`runs`/`results`, loaded via `scripts/load_results.py`, verified 647 = 647). The run is resumable with the identical command if anyone wants to finish `qwen3:14b` or run `gpt-oss:20b` later.
+
+**Operational note:** Postgres did not survive the restart (`Exited (255)`) and had to be started again with `docker start ts-bench-postgres`. Its port mapping was intact this time, unlike the earlier occurrence documented in the task board's T5 update.
+
+---
+
 ## Open items / not yet done
 
-- [ ] Free-tier run completion + results sanity-check (hand-verify a few raw counts against `pipeline/stats.py`'s output, same discipline as T9)
+- [x] Free-tier run: **stopped early at 647/960 by decision** (see above). `gpt-oss:20b` never ran; `qwen3:14b` partial. Not to be presented as a complete 4-model comparison.
 - [x] Paid OpenRouter tier: pilot done (abandoned open-weight model), switched to `claude-haiku-4.5` — 20/24 instances covered (full Java+Python, 9/13 TS), 6/20 resolved (30%), $9.34 of $10 spent — **budget exhausted, stopping here**
 - [ ] T10 — leaderboard page + methodology writeup, built against these real numbers instead of `MockModel` numbers
 - [x] **A TS `infra_error` did occur** (Bug #6) — but it was `_build_test_cmd()`'s use of `npx` breaking on zod's npm/pnpm workspace-field mismatch, not the predicted `is_compile_failure` gap. Fixed by invoking runner binaries directly.
