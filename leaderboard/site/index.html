@@ -3,60 +3,201 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TS-Bench: can AI agents fix real bugs?</title>
+<title>TS-Bench: can AI coding agents fix real bugs?</title>
 <meta name="description" content="6 fixes in 667 attempts: an honest benchmark of AI coding agents on 24 real bugs from open-source projects, with the limits stated up front.">
-<meta name="theme-color" content="#E8EBF3">
+<meta name="theme-color" content="#F5F6F8">
 <meta property="og:type" content="website">
-<meta property="og:title" content="TS-Bench: can AI agents fix real bugs?">
+<meta property="og:title" content="TS-Bench: can AI coding agents fix real bugs?">
 <meta property="og:description" content="6 fixes in 667 attempts: an honest benchmark of AI coding agents on 24 real bugs from open-source projects, with the limits stated up front.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Crect width='22' height='22' rx='4' fill='%23E8EBF3'/%3E%3Ccircle cx='11' cy='11' r='6' fill='%23F0287D' stroke='%23151A3D' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Crect x='1' y='1' width='18' height='18' rx='3' fill='white' stroke='%230F1A2B' stroke-width='1.6'/%3E%3Cpath d='M5 10.5l3.2 3.2L15 6.8' fill='none' stroke='%231F3FD6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&family=Newsreader:opsz,wght@6..72,400..600&display=swap">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<a class="skip" href="#results">Skip to the results</a>
+<a class="skip" href="#overview">Skip to the content</a>
 
-<header class="wrap bar">
-  <a class="mark" href="#top" aria-label="TS-Bench home">
-    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" fill="none"/><g fill="#B7BED6"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="8" y="1" width="6" height="6" rx="1"/><rect x="15" y="1" width="6" height="6" rx="1"/><rect x="1" y="8" width="6" height="6" rx="1"/><rect x="15" y="8" width="6" height="6" rx="1"/><rect x="1" y="15" width="6" height="6" rx="1"/><rect x="8" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/></g><circle cx="11" cy="11" r="3.6" fill="#F0287D" stroke="#151A3D" stroke-width="1.6"/></svg>
-    TS-Bench
-  </a>
-  <nav aria-label="Sections">
-    <a href="#limits">Limits</a>
-    <a href="#results">Results</a>
-    <a href="#tasks">Tasks</a>
-    <a href="#method">Method</a>
-    <a href="https://github.com/NIkhilSaravade/ts-bench">Code</a>
-  </nav>
-</header>
+<div class="bar-outer">
+  <header class="wrap bar">
+    <a class="mark" href="#top" aria-label="TS-Bench home">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="3" fill="none" stroke="#0F1A2B" stroke-width="1.6"/><path d="M5 10.5l3.2 3.2L15 6.8" fill="none" stroke="#1F3FD6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      TS-Bench
+    </a>
+    <nav aria-label="Sections">
+      <a href="#architecture">Architecture</a>
+      <a href="#how">Method</a>
+      <a href="#stack">Stack</a>
+      <a href="#build">Build log</a>
+      <a href="#results">Results</a>
+      <a href="https://github.com/NIkhilSaravade/ts-bench">GitHub</a>
+    </nav>
+  </header>
+</div>
 
 <main id="top">
-<div class="wrap hero">
-  <h1>Real bugs, real repos. 6&nbsp;fixes in 667&nbsp;attempts.</h1>
-  <p class="hero__lede">TS-Bench hands AI coding agents 24 bug reports from open-source projects, then checks whether the patch <strong>really fixes the bug and breaks nothing else</strong>. Each square below is one attempt.</p>
-  <p class="hero__warn">Read <a href="#limits">what these numbers can't tell you</a> before you quote any of them.</p>
-
-  <div class="controls">
-    <span id="group-label">Group the attempts by</span>
-    <div class="seg" role="group" aria-labelledby="group-label">
-      <button type="button" data-group="model" aria-pressed="true">Model</button>
-      <button type="button" data-group="repo" aria-pressed="false">Repository</button>
-      <button type="button" data-group="result" aria-pressed="false">Result</button>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <h1>A benchmark that tests whether AI coding agents can fix real bugs.</h1>
+      <p class="hero__lede">TS-Bench mines real fixes from open-source projects, proves that each one is a fair task, runs models against them in isolated sandboxes, and scores every patch with the project's own tests. It covers TypeScript, Python and Java.</p>
+      <div class="actions">
+        <a class="btn btn--fill" href="#architecture">See the architecture</a>
+        <a class="btn" href="https://github.com/NIkhilSaravade/ts-bench">Read the code</a>
+      </div>
+    </div>
+    <div class="hero__side">
+      <ol class="mini-steps" aria-label="How it works">
+        <li><b>Find a real fix</b><span>A merged pull request that closed an issue and changed a test.</span></li>
+        <li><b>Prove it is fair</b><span>Tests fail before the fix and pass after, three times over.</span></li>
+        <li><b>Run the agent</b><span>Isolated sandbox, fixed budget, no access to the answer.</span></li>
+        <li><b>Score the patch</b><span>The project's own hidden tests decide, nothing else.</span></li>
+      </ol>
+      <aside class="aside" aria-labelledby="early">
+        <h2 id="early">Early results</h2>
+        <p><strong>6 fixes in 667 attempts</strong> across 4 models. Only Claude Haiku 4.5 fixed anything, from 20 tries.</p>
+        <p>The sample is small, so the limits matter as much as the numbers. <a href="#limits">Read them first</a>, then the <a href="#results">results</a>.</p>
+      </aside>
     </div>
   </div>
 
-  <div class="field">
-    <div class="stage" id="stage" role="img" aria-label="667 squares, one per attempt. 6 are highlighted as fixed; the rest did not fix the bug. The same figures are in the table below."></div>
-    <ul class="legend" aria-label="Legend">
-      <li><i class="cell c1"></i>Fixed the bug</li>
-      <li><i class="cell c0"></i>Did not fix it</li>
-      <li><i class="cell c2"></i>Tests timed out</li>
-      <li><i class="cell c3"></i>Patch would not apply</li>
-    </ul>
-  </div>
+  <dl class="facts">
+    <div><dt>Task set</dt><dd>24 real bugs<span>7 repositories, version v0.2</span></dd></div>
+    <div><dt>Languages</dt><dd>TypeScript, Python, Java<span>One adapter interface</span></dd></div>
+    <div><dt>Real attempts</dt><dd>667<span>4 models, $9.30 spent</span></dd></div>
+    <div><dt>Runs on</dt><dd>Docker, Kafka, Kubernetes<span>Postgres for results</span></dd></div>
+    <div><dt>Codebase</dt><dd>About 4,500 lines of Python<span>46 passing tests, CI on every push</span></dd></div>
+  </dl>
 </div>
+
+<section id="overview" class="wrap" aria-labelledby="overview-h">
+  <h2 id="overview-h">What problem this solves</h2>
+  <div class="split">
+    <div class="prose">
+      <p>Leaderboards for AI coding agents report one number. Whether that number means anything depends on questions that are rarely answered in public. Was the task actually solvable? Could the model see the answer? Was the test result stable across runs? When an attempt failed, was that the model's fault or the infrastructure's?</p>
+      <p>TS-Bench is built around those questions. Most of the engineering here is not the agent. It is the machinery that makes a score believable.</p>
+    </div>
+    <div>
+      <h3>Design commitments</h3>
+      <ul>
+        <li>A task exists only if its tests fail before the human fix and pass after it, confirmed over three runs.</li>
+        <li>Agents never see the project's git history or the hidden tests, and any test file they edit is restored before scoring.</li>
+        <li>Infrastructure failures are kept apart from model failures and never counted against a model.</li>
+        <li>Every number on this page is generated from the raw run files, not typed in.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="architecture" class="wrap" aria-labelledby="architecture-h">
+  <h2 id="architecture-h">System architecture</h2>
+  <p class="intro">Five layers. Each one can be tested and swapped on its own, which is why the same harness now runs three languages, two sandboxes and two ways of scheduling work.</p>
+  <figure>
+    <p class="hint">Swipe sideways to see the whole diagram.</p>
+    <div class="figure"><div class="dg-scroll"><svg class="dg" viewBox="0 0 1200 822" role="img" aria-label="Layered system architecture: presentation, orchestration, harness, pipeline, data." xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-head"/></marker></defs><rect class="dg-band" x="8" y="12" width="1184" height="110" rx="6"/><text class="dg-band-title" x="26" y="44">Presentation</text><text class="dg-band-sub" x="26" y="66">What people see</text><rect class="dg-band" x="8" y="146" width="1184" height="138" rx="6"/><text class="dg-band-title" x="26" y="178">Orchestration</text><text class="dg-band-sub" x="26" y="200">Runs many jobs at</text><text class="dg-band-sub" x="26" y="217">once</text><rect class="dg-band" x="8" y="308" width="1184" height="196" rx="6"/><text class="dg-band-title" x="26" y="340">Execution harness</text><text class="dg-band-sub" x="26" y="362">Runs one attempt and</text><text class="dg-band-sub" x="26" y="379">scores it</text><rect class="dg-band" x="8" y="528" width="1184" height="146" rx="6"/><text class="dg-band-title" x="26" y="560">Task pipeline</text><text class="dg-band-sub" x="26" y="582">Turns real fixes into</text><text class="dg-band-sub" x="26" y="599">checked tasks</text><rect class="dg-band" x="8" y="698" width="1184" height="112" rx="6"/><text class="dg-band-title" x="26" y="730">Data and sources</text><text class="dg-band-sub" x="26" y="752">Where everything</text><text class="dg-band-sub" x="26" y="769">lives</text><g class="dg-node k-out"><title>Leaderboard site: Static HTML, CSS and JavaScript, generated from the results data.</title><rect x="214" y="30" width="480" height="74" rx="4"/><text class="dg-title" x="228" y="55">Leaderboard site</text><text class="dg-sub" x="228" y="77">Static HTML, CSS and JavaScript, generated from the results</text><text class="dg-sub" x="228" y="94">data.</text></g><g class="dg-node k-out"><title>Statistics: Fix rate with Wilson 95% ranges, pass@k with bootstrap error bars, cost per attempt.</title><rect x="714" y="30" width="470" height="74" rx="4"/><text class="dg-title" x="728" y="55">Statistics</text><text class="dg-sub" x="728" y="77">Fix rate with Wilson 95% ranges, pass@k with bootstrap error</text><text class="dg-sub" x="728" y="94">bars, cost per attempt.</text></g><g class="dg-node k-core"><title>Job producer: One job per model, task and repeat.</title><rect x="214" y="164" width="200" height="102" rx="4"/><text class="dg-title" x="228" y="189">Job producer</text><text class="dg-sub" x="228" y="211">One job per model, task</text><text class="dg-sub" x="228" y="228">and repeat.</text></g><g class="dg-node k-core"><title>Kafka topic: KRaft mode, 6 partitions.</title><rect x="444" y="164" width="200" height="102" rx="4"/><text class="dg-title" x="458" y="189">Kafka topic</text><text class="dg-sub" x="458" y="211">KRaft mode, 6</text><text class="dg-sub" x="458" y="228">partitions.</text></g><g class="dg-node k-core"><title>Worker pods: Kubernetes consumer group of 3. Each result is written once, even if a job is replayed.</title><rect x="674" y="164" width="270" height="102" rx="4"/><text class="dg-title" x="688" y="189">Worker pods</text><text class="dg-sub" x="688" y="211">Kubernetes consumer group of 3.</text><text class="dg-sub" x="688" y="228">Each result is written once, even</text><text class="dg-sub" x="688" y="245">if a job is replayed.</text></g><g class="dg-node k-core"><title>Sequential driver: run_driver.py. Same harness, one process, resumable results file.</title><rect x="974" y="164" width="210" height="102" rx="4"/><text class="dg-title" x="988" y="189">Sequential driver</text><text class="dg-sub" x="988" y="211">run_driver.py. Same</text><text class="dg-sub" x="988" y="228">harness, one process,</text><text class="dg-sub" x="988" y="245">resumable results file.</text></g><path class="dg-edge flow" d="M414 215H442" marker-end="url(#ah)"/><path class="dg-edge flow" d="M644 215H672" marker-end="url(#ah)"/><path class="dg-edge flow" d="M760 266V326" marker-end="url(#ah)"/><text class="dg-label" x="772" y="300" text-anchor="start">run job</text><g class="dg-node k-core"><title>Model gateway: LiteLLM. One interface for Ollama, OpenRouter, Anthropic and a mock model.</title><rect x="214" y="326" width="176" height="160" rx="4"/><text class="dg-title" x="228" y="351">Model gateway</text><text class="dg-sub" x="228" y="373">LiteLLM. One</text><text class="dg-sub" x="228" y="390">interface for</text><text class="dg-sub" x="228" y="407">Ollama, OpenRouter,</text><text class="dg-sub" x="228" y="424">Anthropic and a mock</text><text class="dg-sub" x="228" y="441">model.</text></g><g class="dg-node k-core"><title>Agent scaffold: One command per turn. 40 turns and 15 minutes, identical for every model.</title><rect x="406" y="326" width="176" height="160" rx="4"/><text class="dg-title" x="420" y="351">Agent scaffold</text><text class="dg-sub" x="420" y="373">One command per</text><text class="dg-sub" x="420" y="390">turn. 40 turns and</text><text class="dg-sub" x="420" y="407">15 minutes,</text><text class="dg-sub" x="420" y="424">identical for every</text><text class="dg-sub" x="420" y="441">model.</text></g><g class="dg-node k-core"><title>Eval runner: Resets test files, applies the patch, adds hidden tests, runs, scores.</title><rect x="598" y="326" width="176" height="160" rx="4"/><text class="dg-title" x="612" y="351">Eval runner</text><text class="dg-sub" x="612" y="373">Resets test files,</text><text class="dg-sub" x="612" y="390">applies the patch,</text><text class="dg-sub" x="612" y="407">adds hidden tests,</text><text class="dg-sub" x="612" y="424">runs, scores.</text></g><g class="dg-node k-core"><title>LanguageAdapter: Four methods. TypeScript, Python and Java plug in here.</title><rect x="790" y="326" width="176" height="160" rx="4"/><text class="dg-title" x="804" y="351">LanguageAdapter</text><text class="dg-sub" x="804" y="373">Four methods.</text><text class="dg-sub" x="804" y="390">TypeScript, Python</text><text class="dg-sub" x="804" y="407">and Java plug in</text><text class="dg-sub" x="804" y="424">here.</text></g><g class="dg-node k-core"><title>Sandbox: A local process, or Docker with warm package caches.</title><rect x="982" y="326" width="202" height="160" rx="4"/><text class="dg-title" x="996" y="351">Sandbox</text><text class="dg-sub" x="996" y="373">A local process, or</text><text class="dg-sub" x="996" y="390">Docker with warm package</text><text class="dg-sub" x="996" y="407">caches.</text></g><path class="dg-edge flow" d="M406 406H392" marker-end="url(#ah)"/><path class="dg-edge flow" d="M582 406H600" marker-end="url(#ah)"/><path class="dg-edge flow" d="M774 406H792" marker-end="url(#ah)"/><path class="dg-edge flow" d="M966 406H984" marker-end="url(#ah)"/><g class="dg-node k-core"><title>Miner: GitHub GraphQL. Merged pull requests that close an issue and change a test.</title><rect x="214" y="546" width="230" height="110" rx="4"/><text class="dg-title" x="228" y="571">Miner</text><text class="dg-sub" x="228" y="593">GitHub GraphQL. Merged pull</text><text class="dg-sub" x="228" y="610">requests that close an issue</text><text class="dg-sub" x="228" y="627">and change a test.</text></g><g class="dg-node k-core"><title>Validator: gold and empty gate: Tests fail before the fix and pass after. Three runs drop flaky tests.</title><rect x="474" y="546" width="290" height="110" rx="4"/><text class="dg-title" x="488" y="571">Validator: gold and empty gate</text><text class="dg-sub" x="488" y="593">Tests fail before the fix and pass</text><text class="dg-sub" x="488" y="610">after. Three runs drop flaky tests.</text></g><g class="dg-node k-core"><title>Dataset export: Versioned JSONL, plus merge dates.</title><rect x="794" y="546" width="200" height="110" rx="4"/><text class="dg-title" x="808" y="571">Dataset export</text><text class="dg-sub" x="808" y="593">Versioned JSONL, plus</text><text class="dg-sub" x="808" y="610">merge dates.</text></g><g class="dg-node k-core"><title>Rigor audit: Re-runs the gate to catch drift.</title><rect x="1024" y="546" width="160" height="110" rx="4"/><text class="dg-title" x="1038" y="571">Rigor audit</text><text class="dg-sub" x="1038" y="593">Re-runs the gate</text><text class="dg-sub" x="1038" y="610">to catch drift.</text></g><path class="dg-edge flow" d="M444 601H472" marker-end="url(#ah)"/><path class="dg-edge flow" d="M764 601H792" marker-end="url(#ah)"/><path class="dg-edge flow" d="M994 601H1022" marker-end="url(#ah)"/><g class="dg-node k-ext"><title>GitHub API: Issues, pull requests, changed files.</title><rect x="214" y="716" width="230" height="76" rx="4"/><text class="dg-title" x="228" y="741">GitHub API</text><text class="dg-sub" x="228" y="763">Issues, pull requests,</text><text class="dg-sub" x="228" y="780">changed files.</text></g><g class="dg-node k-store"><title>Git mirrors: One bare clone per repository. Source of every diff.</title><rect x="474" y="716" width="290" height="76" rx="4"/><text class="dg-title" x="488" y="741">Git mirrors</text><text class="dg-sub" x="488" y="763">One bare clone per repository.</text><text class="dg-sub" x="488" y="780">Source of every diff.</text></g><g class="dg-node k-store"><title>Task set v0.2: 24 tasks, 3 languages.</title><rect x="794" y="716" width="200" height="76" rx="4"/><text class="dg-title" x="808" y="741">Task set v0.2</text><text class="dg-sub" x="808" y="763">24 tasks, 3 languages.</text></g><g class="dg-node k-store"><title>Postgres: tasks, runs, results.</title><rect x="1024" y="716" width="160" height="76" rx="4"/><text class="dg-title" x="1038" y="741">Postgres</text><text class="dg-sub" x="1038" y="763">tasks, runs,</text><text class="dg-sub" x="1038" y="780">results.</text></g><path class="dg-edge" d="M329 716V658" marker-end="url(#ah)"/><path class="dg-edge" d="M619 716V658" marker-end="url(#ah)"/><path class="dg-edge" d="M894 656V714" marker-end="url(#ah)"/></svg></div></div>
+    <figcaption>Boxes are components in the repository; the dashed box is an external service and the tinted ones are outputs. Moving dashes show the direction of work. Hover a box for its role.</figcaption>
+  </figure>
+</section>
+
+<section id="how" class="wrap" aria-labelledby="how-h">
+  <h2 id="how-h">How a task is proven and an attempt is scored</h2>
+  <p class="intro">The hard part of a benchmark is trusting the tasks. Every task passes a gate before it is admitted, and every attempt is scored on a clean rebuild the agent never touched.</p>
+  <figure>
+    <p class="hint">Swipe sideways to see the whole diagram.</p>
+    <div class="figure"><div class="dg-scroll"><svg class="dg" viewBox="0 0 1200 372" role="img" aria-label="Flow that turns a candidate pull request into a validated task or a logged rejection." xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-head"/></marker></defs><g class="dg-node k-core"><title>1  Candidate: A merged pull request that closed an issue and changed a test.</title><rect x="0" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="14" y="55">1  Candidate</text><text class="dg-sub" x="14" y="77">A merged pull</text><text class="dg-sub" x="14" y="94">request that</text><text class="dg-sub" x="14" y="111">closed an issue</text><text class="dg-sub" x="14" y="128">and changed a</text><text class="dg-sub" x="14" y="145">test.</text></g><path class="dg-edge flow" d="M150 108H175" marker-end="url(#ah)"/><g class="dg-node k-core"><title>2  Materialize: git archive of the commit before the fix into a plain folder. No history.</title><rect x="175" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="189" y="55">2  Materialize</text><text class="dg-sub" x="189" y="77">git archive of</text><text class="dg-sub" x="189" y="94">the commit before</text><text class="dg-sub" x="189" y="111">the fix into a</text><text class="dg-sub" x="189" y="128">plain folder. No</text><text class="dg-sub" x="189" y="145">history.</text></g><path class="dg-edge flow" d="M325 108H350" marker-end="url(#ah)"/><g class="dg-node k-core"><title>3  Install: The language adapter installs dependencies at the exact runtime version.</title><rect x="350" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="364" y="55">3  Install</text><text class="dg-sub" x="364" y="77">The language</text><text class="dg-sub" x="364" y="94">adapter installs</text><text class="dg-sub" x="364" y="111">dependencies at</text><text class="dg-sub" x="364" y="128">the exact runtime</text><text class="dg-sub" x="364" y="145">version.</text></g><path class="dg-edge flow" d="M500 108H525" marker-end="url(#ah)"/><g class="dg-node k-core"><title>4  Red run: Add only the pull request&#x27;s tests. The target tests must fail.</title><rect x="525" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="539" y="55">4  Red run</text><text class="dg-sub" x="539" y="77">Add only the pull</text><text class="dg-sub" x="539" y="94">request&#x27;s tests.</text><text class="dg-sub" x="539" y="111">The target tests</text><text class="dg-sub" x="539" y="128">must fail.</text></g><path class="dg-edge flow" d="M675 108H700" marker-end="url(#ah)"/><g class="dg-node k-core"><title>5  Green run: Apply the human fix. The same tests must now pass.</title><rect x="700" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="714" y="55">5  Green run</text><text class="dg-sub" x="714" y="77">Apply the human</text><text class="dg-sub" x="714" y="94">fix. The same</text><text class="dg-sub" x="714" y="111">tests must now</text><text class="dg-sub" x="714" y="128">pass.</text></g><path class="dg-edge flow" d="M850 108H875" marker-end="url(#ah)"/><g class="dg-node k-core"><title>6  Derive sets: fail_to_pass and pass_to_pass, from three runs. Flaky tests dropped.</title><rect x="875" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="889" y="55">6  Derive sets</text><text class="dg-sub" x="889" y="77">fail_to_pass and</text><text class="dg-sub" x="889" y="94">pass_to_pass,</text><text class="dg-sub" x="889" y="111">from three runs.</text><text class="dg-sub" x="889" y="128">Flaky tests</text><text class="dg-sub" x="889" y="145">dropped.</text></g><path class="dg-edge flow" d="M1025 108H1050" marker-end="url(#ah)"/><g class="dg-node k-out"><title>7  Accept: A schema-checked TaskInstance is written to the dataset.</title><rect x="1050" y="30" width="150" height="156" rx="4"/><text class="dg-title" x="1064" y="55">7  Accept</text><text class="dg-sub" x="1064" y="77">A schema-checked</text><text class="dg-sub" x="1064" y="94">TaskInstance is</text><text class="dg-sub" x="1064" y="111">written to the</text><text class="dg-sub" x="1064" y="128">dataset.</text></g><path class="dg-edge dashed" d="M535 186V262" marker-end="url(#ah)"/><path class="dg-edge dashed" d="M710 186V262" marker-end="url(#ah)"/><text class="dg-label" x="548" y="230" text-anchor="start">otherwise</text><g class="dg-node k-warn"><title>Rejected, with a logged reason: No failing test before the fix, tests still fail after it, or the install broke.</title><rect x="425" y="264" width="410" height="84" rx="4"/><text class="dg-title" x="439" y="289">Rejected, with a logged reason</text><text class="dg-sub" x="439" y="311">No failing test before the fix, tests still fail</text><text class="dg-sub" x="439" y="328">after it, or the install broke.</text></g><g class="dg-note"><rect x="0" y="226" width="388" height="122" rx="4"/><text x="14" y="252">Compiled languages: if the new tests cannot</text><text x="14" y="271">compile before the fix, that counts as failing.</text><text x="14" y="290">Test names are read from the diff, and the</text><text x="14" y="309">green run still has to prove them.</text></g></svg></div></div>
+    <figcaption>The gold and empty gate. It is what separates a benchmark from a pile of GitHub links: a task must be provably broken before the fix and provably fixed after it.</figcaption>
+  </figure>
+  <figure style="margin-top:28px">
+    <p class="hint">Swipe sideways to see the whole diagram.</p>
+    <div class="figure"><div class="dg-scroll"><svg class="dg" viewBox="0 0 1200 500" role="img" aria-label="How one model attempt is produced in a private workspace, then scored on a clean rebuild." xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-head"/></marker></defs><text class="dg-lane" x="0" y="20" text-anchor="start">The agent works here</text><g class="dg-node k-store"><title>Task: Issue text and the commit before the fix.</title><rect x="0" y="36" width="190" height="118" rx="4"/><text class="dg-title" x="14" y="61">Task</text><text class="dg-sub" x="14" y="83">Issue text and the</text><text class="dg-sub" x="14" y="100">commit before the fix.</text></g><g class="dg-node k-core"><title>Private workspace: A copy with its own throwaway git repo. None of the project&#x27;s history.</title><rect x="230" y="36" width="230" height="118" rx="4"/><text class="dg-title" x="244" y="61">Private workspace</text><text class="dg-sub" x="244" y="83">A copy with its own</text><text class="dg-sub" x="244" y="100">throwaway git repo. None of</text><text class="dg-sub" x="244" y="117">the project&#x27;s history.</text></g><g class="dg-node k-core"><title>Agent loop: The model sees the issue and code. One shell command per turn, 40 turns, 15 minutes.</title><rect x="500" y="36" width="290" height="118" rx="4"/><text class="dg-title" x="514" y="61">Agent loop</text><text class="dg-sub" x="514" y="83">The model sees the issue and code.</text><text class="dg-sub" x="514" y="100">One shell command per turn, 40</text><text class="dg-sub" x="514" y="117">turns, 15 minutes.</text></g><g class="dg-node k-out"><title>Patch: git diff of everything it changed.</title><rect x="830" y="36" width="170" height="118" rx="4"/><text class="dg-title" x="844" y="61">Patch</text><text class="dg-sub" x="844" y="83">git diff of</text><text class="dg-sub" x="844" y="100">everything it</text><text class="dg-sub" x="844" y="117">changed.</text></g><g class="dg-node k-ext"><title>Meter: Tokens, cost and time are logged.</title><rect x="1030" y="36" width="170" height="118" rx="4"/><text class="dg-title" x="1044" y="61">Meter</text><text class="dg-sub" x="1044" y="83">Tokens, cost and</text><text class="dg-sub" x="1044" y="100">time are logged.</text></g><path class="dg-edge flow" d="M190 95H228" marker-end="url(#ah)"/><path class="dg-edge flow" d="M460 95H498" marker-end="url(#ah)"/><path class="dg-edge flow" d="M790 95H828" marker-end="url(#ah)"/><path class="dg-edge dashed" d="M1000 95H1028" marker-end="url(#ah)"/><text class="dg-lane" x="48" y="232" text-anchor="start">Then scoring starts from scratch</text><g class="dg-node k-core"><title>Rebuild clean: New copy of the commit before the fix. No .git.</title><rect x="0" y="248" width="176" height="132" rx="4"/><text class="dg-title" x="14" y="273">Rebuild clean</text><text class="dg-sub" x="14" y="295">New copy of the</text><text class="dg-sub" x="14" y="312">commit before the</text><text class="dg-sub" x="14" y="329">fix. No .git.</text></g><path class="dg-edge flow" d="M176 314H200" marker-end="url(#ah)"/><g class="dg-node k-core"><title>Reset tests: Any test file the agent touched is restored.</title><rect x="200" y="248" width="176" height="132" rx="4"/><text class="dg-title" x="214" y="273">Reset tests</text><text class="dg-sub" x="214" y="295">Any test file the</text><text class="dg-sub" x="214" y="312">agent touched is</text><text class="dg-sub" x="214" y="329">restored.</text></g><path class="dg-edge flow" d="M376 314H400" marker-end="url(#ah)"/><g class="dg-node k-core"><title>Apply patch: Strict first, then fuzzy. A bad diff scores as not fixed.</title><rect x="400" y="248" width="176" height="132" rx="4"/><text class="dg-title" x="414" y="273">Apply patch</text><text class="dg-sub" x="414" y="295">Strict first, then</text><text class="dg-sub" x="414" y="312">fuzzy. A bad diff</text><text class="dg-sub" x="414" y="329">scores as not fixed.</text></g><path class="dg-edge flow" d="M576 314H600" marker-end="url(#ah)"/><g class="dg-node k-core"><title>Add hidden tests: The project&#x27;s real tests for this bug.</title><rect x="600" y="248" width="176" height="132" rx="4"/><text class="dg-title" x="614" y="273">Add hidden tests</text><text class="dg-sub" x="614" y="295">The project&#x27;s real</text><text class="dg-sub" x="614" y="312">tests for this bug.</text></g><path class="dg-edge flow" d="M776 314H800" marker-end="url(#ah)"/><g class="dg-node k-core"><title>Run the suite: In the sandbox, with a timeout.</title><rect x="800" y="248" width="176" height="132" rx="4"/><text class="dg-title" x="814" y="273">Run the suite</text><text class="dg-sub" x="814" y="295">In the sandbox, with</text><text class="dg-sub" x="814" y="312">a timeout.</text></g><path class="dg-edge flow" d="M976 314H1000" marker-end="url(#ah)"/><g class="dg-node k-out"><title>Score: Fixed only if every target test passes and nothing else breaks.</title><rect x="1000" y="248" width="176" height="132" rx="4"/><text class="dg-title" x="1014" y="273">Score</text><text class="dg-sub" x="1014" y="295">Fixed only if every</text><text class="dg-sub" x="1014" y="312">target test passes</text><text class="dg-sub" x="1014" y="329">and nothing else</text><text class="dg-sub" x="1014" y="346">breaks.</text></g><path class="dg-edge flow" d="M915 154V206H630V246" marker-end="url(#ah)"/><text class="dg-label" x="772" y="198" text-anchor="middle">patch</text><path class="dg-edge dashed" d="M24 154V246" marker-end="url(#ah)"/><g class="dg-note"><rect x="0" y="404" width="1200" height="72" rx="4"/><text x="14" y="430">Result: status (ok, patch_apply_failed, timeout or infra_error), resolved, per-test outcomes, cost, tokens and seconds. infra_error is our failure, not</text><text x="14" y="449">the model&#x27;s, so it is left out of the score.</text></g></svg></div></div>
+    <figcaption>The agent's workspace is deliberately separate from the scoring build. Restoring edited test files and adding the hidden tests only after the patch is applied stops an agent from passing by weakening the tests.</figcaption>
+  </figure>
+  <div class="split">
+    <div>
+      <h3>How each attempt is counted</h3>
+      <dl class="defs">
+        <dt>Fixed</dt><dd>All target tests pass and nothing else broke.</dd>
+        <dt>Not fixed</dt><dd>The patch ran, but a target test still fails or something else broke.</dd>
+        <dt>Timed out</dt><dd>The tests did not finish in time. Counts as not fixed.</dd>
+        <dt>Patch did not apply</dt><dd>The diff was malformed. Counts as not fixed.</dd>
+        <dt>Excluded</dt><dd>Our own failure, such as a billing error or a broken install. Never held against a model. None of the attempts on this page were excluded.</dd>
+      </dl>
+    </div>
+    <div>
+      <h3>Why zero is not a scoring bug</h3>
+      <div class="prose">
+        <p>A run of zeros looks suspicious, so it was checked. The scoring accepts the real human fix on every task and rejects an empty patch on every task. One local model once scored a fix in a timing test, then failed the same task ten times. Tracing it showed the scoring was correct: that task checks two near-identical test variants, the human fix passes both, and a partial fix can pass only one. The one-off pass was most likely run-to-run variation in local inference.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="seam" class="wrap" aria-labelledby="seam-h">
+  <h2 id="seam-h">One interface, three languages</h2>
+  <p class="intro">Only four things depend on the language: how to detect the environment, install, run the tests, and read the results. Everything else is shared.</p>
+  <figure>
+    <p class="hint">Swipe sideways to see the whole diagram.</p>
+    <div class="figure"><div class="dg-scroll"><svg class="dg" viewBox="0 0 1200 500" role="img" aria-label="The language adapter seam: language-agnostic core, a four-method interface, three adapters." xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-head"/></marker></defs><g class="dg-node k-store"><title>Core, with no language-specific code: pipeline (miner, validator, export), harness (eval runner, sandbox) and agent. Everything above the interface treats every language the same.</title><rect x="0" y="0" width="1200" height="80" rx="4"/><text class="dg-title" x="14" y="25">Core, with no language-specific code</text><text class="dg-sub" x="14" y="47">pipeline (miner, validator, export), harness (eval runner, sandbox) and agent. Everything above the interface treats every language the same.</text></g><g class="dg-node k-core"><title>get_adapter(language): </title><rect x="440" y="112" width="320" height="52" rx="4"/><text class="dg-title" x="454" y="137">get_adapter(language)</text></g><path class="dg-edge" d="M600 80V110" marker-end="url(#ah)"/><g class="dg-node k-core"><title>LanguageAdapter interface: </title><rect x="220" y="196" width="760" height="100" rx="4"/><text class="dg-title" x="234" y="221">LanguageAdapter interface</text></g><g class="dg-chip"><rect x="240" y="230" width="172" height="42" rx="3"/><text x="326" y="256" text-anchor="middle">detect_environment()</text></g><g class="dg-chip"><rect x="424" y="230" width="172" height="42" rx="3"/><text x="510" y="256" text-anchor="middle">install()</text></g><g class="dg-chip"><rect x="608" y="230" width="172" height="42" rx="3"/><text x="694" y="256" text-anchor="middle">run_tests()</text></g><g class="dg-chip"><rect x="792" y="230" width="172" height="42" rx="3"/><text x="878" y="256" text-anchor="middle">parse_results()</text></g><path class="dg-edge" d="M600 164V194" marker-end="url(#ah)"/><text class="dg-label" x="780" y="144" text-anchor="start">Adding Java took one line here and two schema allowlist entries.</text><g class="dg-node k-core"><title>TypeScript adapter: npm, pnpm or yarn, from the lockfile Exact Node version through nvm vitest or jest, JSON to a file Monorepo aware</title><rect x="0" y="358" width="376" height="132" rx="4"/><text class="dg-title" x="14" y="383">TypeScript adapter</text><text class="dg-sub" x="14" y="405">npm, pnpm or yarn, from the lockfile</text><text class="dg-sub" x="14" y="422">Exact Node version through nvm</text><text class="dg-sub" x="14" y="439">vitest or jest, JSON to a file</text><text class="dg-sub" x="14" y="456">Monorepo aware</text></g><g class="dg-node k-core"><title>Python adapter: pip, poetry, uv or pipenv detected Isolated uv venv per task pytest with a JSON report Exit code 4 means collection failed</title><rect x="412" y="358" width="376" height="132" rx="4"/><text class="dg-title" x="426" y="383">Python adapter</text><text class="dg-sub" x="426" y="405">pip, poetry, uv or pipenv detected</text><text class="dg-sub" x="426" y="422">Isolated uv venv per task</text><text class="dg-sub" x="426" y="439">pytest with a JSON report</text><text class="dg-sub" x="426" y="456">Exit code 4 means collection failed</text></g><g class="dg-node k-core"><title>Java adapter: Maven, or a repo&#x27;s own Gradle wrapper One modern JDK builds every project Surefire and JUnit XML reports A compile failure is a real result</title><rect x="824" y="358" width="376" height="132" rx="4"/><text class="dg-title" x="838" y="383">Java adapter</text><text class="dg-sub" x="838" y="405">Maven, or a repo&#x27;s own Gradle wrapper</text><text class="dg-sub" x="838" y="422">One modern JDK builds every project</text><text class="dg-sub" x="838" y="439">Surefire and JUnit XML reports</text><text class="dg-sub" x="838" y="456">A compile failure is a real result</text></g><path class="dg-edge" d="M188 358V330H520V298" marker-end="url(#ah)"/><path class="dg-edge" d="M600 358V298" marker-end="url(#ah)"/><path class="dg-edge" d="M1012 358V330H680V298" marker-end="url(#ah)"/><text class="dg-label" x="612" y="350" text-anchor="start">each adapter implements it</text></svg></div></div>
+    <figcaption>The original plan promised zero core changes for a second language. That did not survive Python: it needed a one-function factory and one schema field, and a field named <code>node_version</code> had to be renamed because it had leaked TypeScript into the schema. Java, the third language, then needed one registered line. Recorded in the build log as a design finding, not smoothed over.</figcaption>
+  </figure>
+</section>
+
+<section id="scale" class="wrap" aria-labelledby="scale-h">
+  <h2 id="scale-h">Running it at scale</h2>
+  <p class="intro">Task by model by repeat quickly becomes hundreds of runs. A queue turns that into parallel workers, provided a replayed job can never create a duplicate result.</p>
+  <figure>
+    <p class="hint">Swipe sideways to see the whole diagram.</p>
+    <div class="figure"><div class="dg-scroll"><svg class="dg" viewBox="0 0 1200 470" role="img" aria-label="Kafka and Kubernetes job queue: producer, topic, three workers, idempotent writes to Postgres." xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-head"/></marker></defs><g class="dg-node k-core"><title>Job producer: One job per model, task and repeat.</title><rect x="0" y="66" width="180" height="108" rx="4"/><text class="dg-title" x="14" y="91">Job producer</text><text class="dg-sub" x="14" y="113">One job per model,</text><text class="dg-sub" x="14" y="130">task and repeat.</text></g><g class="dg-node k-core"><title>Kafka topic: ts-bench-jobs, 6 partitions, KRaft mode.</title><rect x="230" y="66" width="200" height="108" rx="4"/><text class="dg-title" x="244" y="91">Kafka topic</text><text class="dg-sub" x="244" y="113">ts-bench-jobs, 6</text><text class="dg-sub" x="244" y="130">partitions, KRaft mode.</text></g><rect class="dg-group" x="480" y="30" width="440" height="176" rx="6"/><text class="dg-group-title" x="494" y="53">Kubernetes Deployment: 3 replicas, one consumer group</text><g class="dg-node k-core"><title>Worker 1: Runs one job at a time</title><rect x="496" y="78" width="126" height="108" rx="4"/><text class="dg-title" x="510" y="103">Worker 1</text><text class="dg-sub" x="510" y="125">Runs one job</text><text class="dg-sub" x="510" y="142">at a time</text></g><g class="dg-node k-core"><title>Worker 2: Runs one job at a time</title><rect x="634" y="78" width="126" height="108" rx="4"/><text class="dg-title" x="648" y="103">Worker 2</text><text class="dg-sub" x="648" y="125">Runs one job</text><text class="dg-sub" x="648" y="142">at a time</text></g><g class="dg-node k-core"><title>Worker 3: Runs one job at a time</title><rect x="772" y="78" width="126" height="108" rx="4"/><text class="dg-title" x="786" y="103">Worker 3</text><text class="dg-sub" x="786" y="125">Runs one job</text><text class="dg-sub" x="786" y="142">at a time</text></g><g class="dg-node k-store"><title>Postgres: One row per run, task and repeat.</title><rect x="970" y="66" width="230" height="108" rx="4"/><text class="dg-title" x="984" y="91">Postgres</text><text class="dg-sub" x="984" y="113">One row per run, task and</text><text class="dg-sub" x="984" y="130">repeat.</text></g><path class="dg-edge flow" d="M180 120H228" marker-end="url(#ah)"/><path class="dg-edge flow" d="M430 120H478" marker-end="url(#ah)"/><path class="dg-edge flow" d="M920 120H968" marker-end="url(#ah)"/><g class="dg-node k-core"><title>1  Pull a job: Take one message from the topic.</title><rect x="0" y="244" width="216" height="108" rx="4"/><text class="dg-title" x="14" y="269">1  Pull a job</text><text class="dg-sub" x="14" y="291">Take one message from the</text><text class="dg-sub" x="14" y="308">topic.</text></g><path class="dg-edge flow" d="M216 298H246" marker-end="url(#ah)"/><g class="dg-node k-core"><title>2  Already done?: Look up the key in Postgres. If present, skip.</title><rect x="246" y="244" width="216" height="108" rx="4"/><text class="dg-title" x="260" y="269">2  Already done?</text><text class="dg-sub" x="260" y="291">Look up the key in</text><text class="dg-sub" x="260" y="308">Postgres. If present,</text><text class="dg-sub" x="260" y="325">skip.</text></g><path class="dg-edge flow" d="M462 298H492" marker-end="url(#ah)"/><g class="dg-node k-core"><title>3  Run it: Agent, then the eval runner, in a sandbox.</title><rect x="492" y="244" width="216" height="108" rx="4"/><text class="dg-title" x="506" y="269">3  Run it</text><text class="dg-sub" x="506" y="291">Agent, then the eval</text><text class="dg-sub" x="506" y="308">runner, in a sandbox.</text></g><path class="dg-edge flow" d="M708 298H738" marker-end="url(#ah)"/><g class="dg-node k-core"><title>4  Write once: INSERT with ON CONFLICT DO NOTHING.</title><rect x="738" y="244" width="216" height="108" rx="4"/><text class="dg-title" x="752" y="269">4  Write once</text><text class="dg-sub" x="752" y="291">INSERT with ON CONFLICT DO</text><text class="dg-sub" x="752" y="308">NOTHING.</text></g><path class="dg-edge flow" d="M954 298H984" marker-end="url(#ah)"/><g class="dg-node k-out"><title>5  Commit the offset: Only now does Kafka mark it done.</title><rect x="984" y="244" width="216" height="108" rx="4"/><text class="dg-title" x="998" y="269">5  Commit the offset</text><text class="dg-sub" x="998" y="291">Only now does Kafka mark</text><text class="dg-sub" x="998" y="308">it done.</text></g><g class="dg-note"><rect x="0" y="376" width="1200" height="82" rx="4"/><text x="14" y="402">Key is (run_id, instance_id, repeat), the same key the sequential driver uses. If a pod dies between steps 3 and 5 the offset was never committed, so</text><text x="14" y="421">another pod picks the job up. Verified by force-killing a pod mid-job: 30 jobs gave exactly 30 rows, none lost, none duplicated.</text></g></svg></div></div>
+    <figcaption>Verified on a real single-broker Kafka and a local Kubernetes cluster, in two runs of 15 and 30 jobs. This demo baked in only the Python tasks to keep the worker image small, so it proves the queue mechanism, not the full task set.</figcaption>
+  </figure>
+</section>
+
+<section id="stack" class="wrap" aria-labelledby="stack-h">
+  <h2 id="stack-h">Tech stack</h2>
+  <p class="intro">About 4,500 lines of Python in the core, 46 passing tests, and lint and formatting checks enforced by CI on every push.</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th scope="col">Area</th><th scope="col">Tools</th><th scope="col">What they do here</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Language and packaging</th><td>Python 3.12, uv, hatchling</td><td>Core code, locked and reproducible environments.</td></tr>
+        <tr><th scope="row">Data and schema</th><td>Pydantic v2, JSONL, HuggingFace datasets</td><td>Validated task schema and a versioned, immutable dataset that loads with the datasets library.</td></tr>
+        <tr><th scope="row">Storage</th><td>PostgreSQL 16, psycopg 3</td><td>tasks, runs and results tables. Composite keys make replayed writes safe.</td></tr>
+        <tr><th scope="row">Model access</th><td>LiteLLM, Ollama, OpenRouter, Anthropic API</td><td>One interface for local and hosted models, with cost and token logging.</td></tr>
+        <tr><th scope="row">Targets under test</th><td>Node via nvm, pnpm, npm, yarn, vitest, jest, pytest, Maven, JUnit</td><td>What the language adapters drive inside each task&#x27;s own repository.</td></tr>
+        <tr><th scope="row">Isolation</th><td>Docker, warm package-cache volumes, git archive</td><td>Runs without host state. Task folders are built with no git history.</td></tr>
+        <tr><th scope="row">Scale-out</th><td>Apache Kafka 3.8 (KRaft), kafka-python, Kubernetes (kind)</td><td>An idempotent job queue and a pool of worker pods.</td></tr>
+        <tr><th scope="row">Task sources</th><td>GitHub GraphQL API, bare git mirrors</td><td>Mining merged pull requests and extracting exact diffs.</td></tr>
+        <tr><th scope="row">Agent experiment</th><td>LangChain, LangGraph</td><td>A tool-using second agent, in a separate project.</td></tr>
+        <tr><th scope="row">Quality</th><td>pytest, ruff, pre-commit, GitHub Actions</td><td>46 passing tests. CI enforces lint and formatting on every push.</td></tr>
+        <tr><th scope="row">This site</th><td>Static HTML, CSS, JavaScript, inline SVG, Cloudflare Pages</td><td>Generated from the results data by a standard-library Python script. No framework.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="build" class="wrap" aria-labelledby="build-h">
+  <h2 id="build-h">How it was built</h2>
+  <p class="intro">Fifteen tasks in dependency order, each finished only when its own check passed. The task board in the repository records what was actually built, including every bug hit on the way.</p>
+  <ol class="phases">
+    <li><h3>Foundation<span class="when">T1, T2</span></h3><p>A monorepo with uv, ruff, pre-commit and CI, and a Pydantic TaskInstance schema as the contract between every stage.</p><p>The LanguageAdapter interface and a TypeScript adapter, checked on three real repositories (zod, class-validator, trpc) with identical results across runs.</p></li>
+    <li><h3>Tasks worth trusting<span class="when">T3, T4, T11</span></h3><p>The validator and its gold and empty gate, a GitHub GraphQL miner, and 24 validated tasks in the end.</p><p>Contamination dates for every task, and a repeat-run audit that re-checks the whole set (13 of 13 clean when last run).</p></li>
+    <li><h3>Execution and scoring<span class="when">T6, T7, T8, T9</span></h3><p>An eval runner with anti-cheat test resets, a deliberately minimal reference agent, a LiteLLM gateway with cost tracking, and a hard split between model failures and infrastructure failures.</p><p>pass@k with bootstrap error bars, checked against hand calculations before it was trusted.</p></li>
+    <li><h3>Reproducibility and breadth<span class="when">T12, T13, T14</span></h3><p>A Docker sandbox with warm package caches, measured 25 to 35 percent faster on a monorepo and 2.5 to 3 times faster on a single package.</p><p>Python and Java adapters that proved the language seam.</p></li>
+    <li><h3>Storage and scale<span class="when">T5, T15</span></h3><p>A versioned dataset export and a Postgres schema that round-trips it exactly.</p><p>A Kafka and Kubernetes job queue, verified against a force-killed worker.</p></li>
+    <li><h3>Real models, and this site<span class="when">Step 7, T10</span></h3><p>667 real attempts on local and paid models. Eight bugs surfaced, and were fixed, only once real and imperfect model output flowed through.</p><p>This site, generated from the results with its limits stated first.</p></li>
+  </ol>
+  <h3 style="margin-top:clamp(40px,6vw,72px);font-size:1.5rem;font-family:var(--serif);font-weight:500;letter-spacing:-0.01em">Problems that took real debugging</h3>
+  <p class="intro" style="margin-top:8px">Each of these looked like something else at first. The lesson repeated: when a failure cannot be reproduced on the spot, read the tool's source instead of trusting the error text.</p>
+  <div class="cases">
+    <article class="case"><h3>Node version was recorded but never enforced</h3><dl><dt>Symptom</dt><dd>Nearly every trpc candidate was rejected with dozens of unrelated failing tests.</dd><dt>Cause</dt><dd>Tests ran under whatever Node the shell defaulted to (v24). The repository pinned 22, and the two disagreed about fetch internals.</dd><dt>Fix</dt><dd>The adapter resolves the exact Node version through nvm and puts it first on PATH. The six newest trpc candidates then validated on the first try.</dd></dl></article>
+    <article class="case"><h3>A passing gate can hide an untested safety path</h3><dl><dt>Symptom</dt><dd>The gold and empty gate passed, yet nothing had exercised the rule that restores test files an agent edits.</dd><dt>Cause</dt><dd>The human patch never touches test files by construction, so the restore step always ran on an empty list.</dd><dt>Fix</dt><dd>A direct test tampers with a real test file and checks it is restored.</dd></dl></article>
+    <article class="case"><h3>Caching the wrong thing in Docker</h3><dl><dt>Symptom</dt><dd>In a pnpm monorepo, vitest was missing, fell back to a global copy, and the harness reported a clean-looking but wrong result.</dd><dt>Cause</dt><dd>The first design cached node_modules by lockfile hash and skipped the install, so per-package node_modules were never created.</dd><dt>Fix</dt><dd>Always run the install and persist the package managers&#x27; own caches instead. Warm installs were 25 to 35 percent faster on a monorepo, 2.5 to 3 times on a single package.</dd></dl></article>
+    <article class="case"><h3>Compiled languages broke task mining</h3><dl><dt>Symptom</dt><dd>74 Java candidates from two repositories produced zero tasks.</dd><dt>Cause</dt><dd>The new tests call a method the fix adds, so they cannot compile before the fix. A dynamic language would simply fail that one test.</dd><dt>Fix</dt><dd>A compile failure now counts as failing before the fix, with test names read from the diff. A wrong guess can only miss a task, never approve a false one. Six Java tasks validated, and the work exposed a scoring bug that under-scored parameterized tests.</dd></dl></article>
+    <article class="case"><h3>Failures scored as infrastructure errors</h3><dl><dt>Symptom</dt><dd>A real model&#x27;s broken Java or Python patch was recorded as infra_error, which is excluded from the score.</dd><dt>Cause</dt><dd>Every earlier check ran only the human patch, which always compiles. Real model output was the first thing to reach that path.</dd><dt>Fix</dt><dd>Typed exceptions for compile and collection failures (and pytest&#x27;s own exit code 4), so they count against the model. Left alone, it would have quietly inflated Java scores.</dd></dl></article>
+    <article class="case"><h3>Environment bugs that looked like flakes</h3><dl><dt>Symptom</dt><dd>Bursts of identical infrastructure errors in the middle of a long run.</dd><dt>Cause</dt><dd>Three causes: Ollama restarted as the wrong user served zero models (230 attempts lost), nvm install hit the network on every call, and a global .npmrc with workspaces=true broke npm for every project.</dd><dt>Fix</dt><dd>A 15-minute watcher caught each burst. Bad rows were removed and the run resumed without rework. Reading the tools&#x27; source found the last two.</dd></dl></article>
+    <article class="case"><h3>Kafka on one broker never assigned work</h3><dl><dt>Symptom</dt><dd>Workers reported ready and never received a partition.</dd><dt>Cause</dt><dd>The offsets topic defaults to 3 replicas, which one broker can never satisfy, and the job topic had been created with a single partition, so two of three workers sat idle.</dd><dt>Fix</dt><dd>Set the replication factor to 1 and raised the topic to 6 partitions. Then verified concurrent workers and a force-killed pod: nothing lost, nothing duplicated.</dd></dl></article>
+  </div>
+</section>
 
 <section class="limits" id="limits" aria-labelledby="limits-h">
   <div class="wrap">
@@ -84,36 +225,53 @@
 
 <section id="results" class="wrap" aria-labelledby="results-h">
   <h2 id="results-h">Results by model</h2>
-  <p class="intro">Models with zero fixes are tied, so we don't rank them. The bar shows the range the real fix rate probably sits in, given how few attempts there are. Wide bar means low confidence.</p>
+  <p class="intro">Models with zero fixes are tied, so they are not ranked. The bar shows the range the true fix rate probably sits in, given how few attempts there are. A wide bar means low confidence.</p>
   <div class="table-wrap">
     <table>
-      <caption class="sr" style="position:absolute;left:-999px">Bugs fixed by each model</caption>
+      <caption style="position:absolute;left:-999px">Bugs fixed by each model</caption>
       <thead>
         <tr>
           <th scope="col">Model</th>
           <th scope="col">Bugs fixed</th>
-          <th scope="col">Likely range (95%)</th>
+          <th scope="col">Likely range (95%), bar scale 0 to 60%</th>
           <th scope="col">Cost</th>
           <th scope="col">Tasks covered</th>
           <th scope="col">Run</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="is-fix"><th scope="row">Claude Haiku 4.5<small>Anthropic, paid API</small></th><td class="num"><b>6</b> of 20</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:24.25%;width:62.25%"></div><div class="range__dot" style="left:50.00%"></div></div></div><small>15% to 52%</small></div></td><td class="num">$9.30</td><td class="num">20 of 24</td><td><span class="pill pill--partial">Stopped early</span></td></tr>
-        <tr class="is-none"><th scope="row">Qwen2.5-Coder 14B<small>Alibaba, local, free</small></th><td class="num"><b>0</b> of 240</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:0.00%;width:2.63%"></div><div class="range__dot" style="left:0.00%"></div></div></div><small>0.0% to 1.6%</small></div></td><td class="num">Free</td><td class="num">24 of 24</td><td><span class="pill">Complete</span></td></tr>
-        <tr class="is-none"><th scope="row">Codestral 22B<small>Mistral, local, free</small></th><td class="num"><b>0</b> of 240</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:0.00%;width:2.63%"></div><div class="range__dot" style="left:0.00%"></div></div></div><small>0.0% to 1.6%</small></div></td><td class="num">Free</td><td class="num">24 of 24</td><td><span class="pill">Complete</span></td></tr>
-        <tr class="is-none"><th scope="row">Qwen3 14B<small>Alibaba, local, free</small></th><td class="num"><b>0</b> of 167</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:0.00%;width:3.75%"></div><div class="range__dot" style="left:0.00%"></div></div></div><small>0.0% to 2.2%</small></div></td><td class="num">Free</td><td class="num">17 of 24</td><td><span class="pill pill--partial">Stopped early</span></td></tr>
-        <tr class="is-off"><th scope="row">gpt-oss 20B<small>OpenAI, local, free</small></th><td class="num">No data</td><td><small>Never run</small></td><td class="num">None</td><td class="num">None</td><td><span class="pill pill--off">Not run</span></td></tr>
+        <tr class="is-fix"><th scope="row">Claude Haiku 4.5<small>Anthropic, paid API</small></th><td class="num"><b>6</b> of 20</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:24.25%;width:62.25%"></div><div class="range__dot" style="left:50.00%"></div></div></div><small>15% to 52%</small></div></td><td class="num">$9.30</td><td class="num">20 of 24</td><td><span class="tag tag--partial">Stopped early</span></td></tr>
+        <tr class="is-none"><th scope="row">Qwen2.5-Coder 14B<small>Alibaba, local, free</small></th><td class="num"><b>0</b> of 240</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:0.00%;width:2.63%"></div><div class="range__dot" style="left:0.00%"></div></div></div><small>0.0% to 1.6%</small></div></td><td class="num">Free</td><td class="num">24 of 24</td><td><span class="tag">Complete</span></td></tr>
+        <tr class="is-none"><th scope="row">Codestral 22B<small>Mistral, local, free</small></th><td class="num"><b>0</b> of 240</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:0.00%;width:2.63%"></div><div class="range__dot" style="left:0.00%"></div></div></div><small>0.0% to 1.6%</small></div></td><td class="num">Free</td><td class="num">24 of 24</td><td><span class="tag">Complete</span></td></tr>
+        <tr class="is-none"><th scope="row">Qwen3 14B<small>Alibaba, local, free</small></th><td class="num"><b>0</b> of 167</td><td><div class="range"><div class="range__track"><div class="range__ink"><div class="range__band" style="left:0.00%;width:3.75%"></div><div class="range__dot" style="left:0.00%"></div></div></div><small>0.0% to 2.2%</small></div></td><td class="num">Free</td><td class="num">17 of 24</td><td><span class="tag tag--partial">Stopped early</span></td></tr>
+        <tr class="is-off"><th scope="row">gpt-oss 20B<small>OpenAI, local, free</small></th><td class="num">No data</td><td><small>Never run</small></td><td class="num">None</td><td class="num">None</td><td><span class="tag tag--off">Not run</span></td></tr>
       </tbody>
     </table>
   </div>
-  <div class="axis" aria-hidden="true"><span>0%</span><span>30%</span><span>60% of attempts fixed</span></div>
   <p class="intro" style="margin-top:22px">Paid spend was $9.30 of a $10 budget, about $0.47 per attempt. A further 2 attempts by Claude Sonnet 4.5 ($2.88) were early smoke tests, fixed 0, and are too few to rank.</p>
-</section>
 
-<section id="tasks" class="wrap" aria-labelledby="tasks-h">
-  <h2 id="tasks-h">Every task, model by model</h2>
-  <p class="intro">Each cell is fixes over attempts. The date is when the real fix was merged into the project. The older it is, the more likely a model has seen it during training.</p>
+  <h3 style="margin-top:clamp(36px,5vw,60px);font-size:1.4rem;font-family:var(--serif);font-weight:500">Every attempt</h3>
+  <p class="intro" style="margin-top:6px">One square per real attempt, 667 in total. Hover or tap a square for details.</p>
+  <div class="controls">
+    <span id="group-label">Group by</span>
+    <div class="seg" role="group" aria-labelledby="group-label">
+      <button type="button" data-group="model" aria-pressed="true">Model</button>
+      <button type="button" data-group="repo" aria-pressed="false">Repository</button>
+      <button type="button" data-group="result" aria-pressed="false">Result</button>
+    </div>
+  </div>
+  <div class="field">
+    <div class="stage" id="stage" role="img" aria-label="667 squares, one per attempt. 6 are highlighted as fixed; the rest did not fix the bug. The same figures are in the table below."></div>
+    <ul class="legend" aria-label="Legend">
+      <li><i class="cell c1"></i>Fixed the bug</li>
+      <li><i class="cell c0"></i>Did not fix it</li>
+      <li><i class="cell c2"></i>Tests timed out</li>
+      <li><i class="cell c3"></i>Patch would not apply</li>
+    </ul>
+  </div>
+
+  <h3 style="margin-top:clamp(36px,5vw,60px);font-size:1.4rem;font-family:var(--serif);font-weight:500">Every task, model by model</h3>
+  <p class="intro" style="margin-top:6px">Each cell is fixes over attempts. The date is when the real fix was merged. The older it is, the more likely a model saw it during training.</p>
   <div class="table-wrap">
     <table class="matrix">
       <thead>
@@ -156,47 +314,12 @@
   </div>
 </section>
 
-<section id="method" class="wrap" aria-labelledby="method-h">
-  <h2 id="method-h">How a bug becomes a score</h2>
-  <p class="intro">The method matters more than the leaderboard. Here is what each score rests on.</p>
-  <ol class="steps">
-    <li><h3>Find a real fix</h3><p>Take a merged pull request that closed a GitHub issue and changed a test. The issue text becomes the bug report; the fix and its tests become the answer key.</p></li>
-    <li><h3>Prove it is a fair task</h3><p>Before the fix, the new tests must fail. After it, they must pass. Each task is run three times to throw out flaky tests. A task that fails either check is rejected and logged.</p></li>
-    <li><h3>Let the agent try</h3><p>The agent gets the issue text and the code as it was before the fix, with no git history. Same instructions, 40 turns and 15 minutes for every model. Any test file it edits is put back.</p></li>
-    <li><h3>Score the patch</h3><p>The hidden tests are added and run. The bug counts as fixed only if every target test passes and no test that used to pass now fails.</p></li>
-  </ol>
-
-  <div class="two">
+<section id="reproduce" class="wrap" aria-labelledby="repro-h">
+  <div class="split">
     <div>
-      <h3>How each attempt is counted</h3>
-      <dl class="defs">
-        <dt>Fixed</dt><dd>All target tests pass and nothing else broke.</dd>
-        <dt>Not fixed</dt><dd>The patch ran but a target test still fails, or something else broke.</dd>
-        <dt>Timed out</dt><dd>The tests didn't finish in time. Counts as not fixed.</dd>
-        <dt>Patch did not apply</dt><dd>The diff was malformed. Counts as not fixed.</dd>
-        <dt>Excluded</dt><dd>Our own failure, such as a billing error or a broken install. It is never held against a model. None of the attempts on this page were excluded.</dd>
-      </dl>
-    </div>
-    <div>
-      <h3>Why zero isn't a bug in the scoring</h3>
-      <div class="prose">
-        <p>A run of zeros looks suspicious, so we checked. The scoring accepts the real human fix on every task and rejects an empty patch on every task. We also traced one task where a local model scored a fix once in a timing test, then failed the same task ten times. The scoring was correct: that task checks two near-identical test variants, the human fix passes both, and a partial fix can pass only one. The one-off pass was most likely run-to-run variation in local inference. Small local models scoring near zero on hard, real bugs is a plausible result, not a broken pipeline.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="two">
-    <div>
-      <h3>We also tried a smarter agent</h3>
-      <div class="prose">
-        <p>The plain agent types one shell command per turn. We built a second agent with real tools (read, search, edit, run the tests) and language-specific instructions, using LangGraph. On 5 Python tasks with Qwen3 14B it fixed none, although once we fixed problems in our own setup it wrote a patch on 3 of the 5 tasks, up from 1. None of those patches was correct.</p>
-        <p>That is one model on five tasks, so it is a note and not a finding. The work is in a separate project, so nothing here changes the main benchmark.</p>
-      </div>
-    </div>
-    <div>
-      <h3>Check our work</h3>
-      <div class="prose"><p>The code, tasks and results are open. You need Docker, <code>uv</code>, and either Ollama or an API key. Nobody outside this project has run these yet.</p></div>
-      <pre><span class="c"># the gold patch must fix every task, an empty patch none</span>
+      <h2 id="repro-h" style="font-size:clamp(1.6rem,3vw,2.2rem)">Check the work</h2>
+      <div class="prose"><p>The code, tasks and results are open. You need Docker, <code>uv</code>, and either Ollama or an API key. Nobody outside this project has run these yet, so treat the steps as untested by others.</p></div>
+      <pre><span class="c"># the human fix must resolve every task, an empty patch none</span>
 uv run python scripts/run_gate.py
 
 <span class="c"># run a model on every task, 10 tries each (resumable)</span>
@@ -208,6 +331,13 @@ uv run python scripts/run_driver.py \
 <span class="c"># fix rate and pass@k with error bars</span>
 uv run python scripts/compute_stats.py \
   --in results/my_run.jsonl --k 5</pre>
+    </div>
+    <div>
+      <h3>A second agent design</h3>
+      <div class="prose">
+        <p>The plain agent types one shell command per turn. A second agent with real tools (read, search, edit, run tests) and language-specific instructions was built with LangGraph in a separate project. On 5 Python tasks with Qwen3 14B it fixed none, although once we fixed problems in our own setup it wrote a patch on 3 of the 5 tasks, up from 1. None of those patches was correct.</p>
+        <p>That is one model on five tasks, so it is a note and not a finding. It changes nothing in the main benchmark.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -226,6 +356,7 @@ uv run python scripts/compute_stats.py \
     </div>
     <div>
       <p><a href="https://github.com/NIkhilSaravade/ts-bench">Source code and data on GitHub</a></p>
+      <p><a href="https://github.com/NIkhilSaravade/ts-bench/blob/main/docs/ts-bench-task-board.md">The task board and build history</a></p>
       <p><a href="https://github.com/NIkhilSaravade/ts-bench/blob/main/docs/fairness_contract.md">The fairness contract</a></p>
     </div>
   </div>

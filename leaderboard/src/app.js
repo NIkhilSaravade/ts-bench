@@ -1,4 +1,4 @@
-/* TS-Bench leaderboard: the field of attempts, its tooltip, and the small reveals. No dependencies. */
+/* TS-Bench site: the field of attempts, its tooltip, and two small reveals. No dependencies. */
 (function () {
   "use strict";
   var root = document.documentElement;
@@ -40,7 +40,6 @@
 
   function group(mode) {
     var lanes = [];
-    var i;
     if (mode === "model") {
       models.forEach(function (m, mi) {
         var list = cells.filter(function (c) { return c.m === mi; });
@@ -69,7 +68,6 @@
 
   var labels = [];
   var mode = "model";
-  // deep link: ?group=repo or ?group=result opens on that grouping
   var wanted = new URLSearchParams(window.location.search).get("group");
   if (wanted === "repo" || wanted === "result") {
     mode = wanted;
@@ -77,15 +75,17 @@
       b.setAttribute("aria-pressed", String(b.dataset.group === mode));
     });
   }
-  var firstLayout = true;
 
   function metrics() {
     var cs = getComputedStyle(stage);
-    var size = parseFloat(cs.getPropertyValue("--cell")) || 13;
-    var gap = parseFloat(cs.getPropertyValue("--gap")) || 3;
-    return { size: size, gap: gap, width: stage.clientWidth };
+    return {
+      size: parseFloat(cs.getPropertyValue("--cell")) || 12,
+      gap: parseFloat(cs.getPropertyValue("--gap")) || 3,
+      width: stage.clientWidth,
+    };
   }
 
+  // animate: "reveal" fades squares in place in order; "move" glides them to a new grouping; false = instant
   function layout(animate) {
     var mt = metrics();
     var step = mt.size + mt.gap;
@@ -109,10 +109,8 @@
       requestAnimationFrame(function () { lab.classList.add("is-in"); });
       y += 26;
       lane.list.forEach(function (c, k) {
-        var x = (k % cols) * step;
-        var yy = y + Math.floor(k / cols) * step;
-        c.tx = x;
-        c.ty = yy;
+        c.tx = (k % cols) * step;
+        c.ty = y + Math.floor(k / cols) * step;
         c.order = order++;
       });
       y += Math.ceil(lane.list.length / cols) * step + 26;
@@ -120,60 +118,59 @@
     stage.style.height = y - 10 + "px";
 
     cells.forEach(function (c) {
-      if (animate) {
-        c.el.style.transition =
-          "transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) " + Math.min(c.order * 1.6, 1100) + "ms, opacity 0.5s " + Math.min(c.order * 1.6, 1100) + "ms";
+      var delay = Math.min(c.order * 1.2, 900);
+      if (animate === "move") {
+        c.el.style.transition = "transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) " + delay * 0.6 + "ms";
+      } else if (animate === "reveal") {
+        c.el.style.transition = "opacity 0.45s ease " + delay + "ms";
       } else {
         c.el.style.transition = "none";
       }
-      c.el.style.opacity = 1;
       c.el.style.transform = "translate(" + c.tx + "px," + c.ty + "px)";
+      c.el.style.opacity = 1;
     });
   }
 
-  function scatter() {
-    var mt = metrics();
-    cells.forEach(function (c) {
-      var x = Math.random() * mt.width;
-      var y = -60 - Math.random() * 260;
-      var r = (Math.random() - 0.5) * 540;
-      c.el.style.transition = "none";
-      c.el.style.opacity = 0;
-      c.el.style.transform = "translate(" + x + "px," + y + "px) rotate(" + r + "deg) scale(0.3)";
-    });
-    void stage.offsetWidth; // commit the scattered start before animating away from it
-  }
-
-  function pulseFixed() {
-    cells.forEach(function (c) {
-      if (c.code === 1) c.el.classList.add("pulse");
-    });
-  }
-
+  // first paint: position everything at once (invisible), then fade in sequentially
   function start() {
     if (reduce) {
       layout(false);
       return;
     }
-    scatter();
-    // while squares are still falling across the page they must not catch clicks meant for the buttons
-    stage.classList.add("is-settling");
-    requestAnimationFrame(function () {
-      layout(true);
-      setTimeout(pulseFixed, 2100);
-      setTimeout(function () { stage.classList.remove("is-settling"); }, 2400);
-    });
+    cells.forEach(function (c) { c.el.style.opacity = 0; c.el.style.transition = "none"; });
+    var began = false;
+    function begin() {
+      if (began) return;
+      began = true;
+      layout(false);
+      cells.forEach(function (c) { c.el.style.opacity = 0; });
+      void stage.offsetWidth;
+      layout("reveal");
+    }
+    // Begin when the field is about to be seen, so the reveal isn't wasted off-screen.
+    // Three ways in, so the squares can never stay hidden: already on screen, scrolled into view,
+    // or (fallback) a timer.
+    var top = stage.getBoundingClientRect().top;
+    if (top < window.innerHeight * 0.85) {
+      begin();
+      return;
+    }
+    if ("IntersectionObserver" in window) {
+      var io0 = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) { io0.disconnect(); begin(); }
+      }, { rootMargin: "0px 0px -15% 0px" });
+      io0.observe(stage);
+    }
+    setTimeout(begin, 6000);
   }
 
-  // grouping buttons
   var buttons = document.querySelectorAll("[data-group]");
   buttons.forEach(function (b) {
     b.addEventListener("click", function () {
       if (mode === b.dataset.group) return;
       mode = b.dataset.group;
       buttons.forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
-      cells.forEach(function (c) { c.el.classList.remove("pulse"); });
-      layout(!reduce);
+      layout(reduce ? false : "move");
     });
   });
 
@@ -189,7 +186,7 @@
     }, 150);
   });
 
-  // tooltip: event delegation over the stage
+  // tooltip via event delegation over the stage
   function show(el, x, y) {
     var c = cells[Number(el.dataset.idx)];
     tip.innerHTML = "";
@@ -219,7 +216,7 @@
   stage.addEventListener("pointerleave", function () { tip.classList.remove("is-on"); });
   window.addEventListener("scroll", function () { tip.classList.remove("is-on"); }, { passive: true });
 
-  // the confidence-range bars draw in once, when they scroll into view
+  // confidence-range bars draw once when scrolled into view
   var ranges = document.querySelectorAll(".range");
   if ("IntersectionObserver" in window && !reduce) {
     var io = new IntersectionObserver(function (entries) {

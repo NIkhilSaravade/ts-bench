@@ -16,9 +16,13 @@ import html
 import json
 import re
 import shutil
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import diagrams  # noqa: E402  (sibling module; path added just above)
+
 SRC = HERE / "src"
 SITE = HERE / "site"
 data = json.loads((HERE / "data" / "results.json").read_text())
@@ -158,13 +162,13 @@ def row(m: dict) -> str:
             f"<small>{pct(m['ci_low'])} to {pct(m['ci_high'])}</small></div>"
         )
         cost = f"${m['cost_usd']:.2f}" if m["cost_usd"] else "Free"
-        pill_cls = "pill pill--partial" if m["status"] == "partial" else "pill"
+        pill_cls = "tag tag--partial" if m["status"] == "partial" else "tag"
         pill_txt = "Stopped early" if m["status"] == "partial" else "Complete"
     else:
         fixed = "No data"
         rng = "<small>Never run</small>"
         cost = "None"
-        pill_cls, pill_txt = "pill pill--off", "Not run"
+        pill_cls, pill_txt = "tag tag--off", "Not run"
     cov = f"{m['instances_covered']} of {m['instances_total']}" if m["attempts"] else "None"
     return (
         f'<tr class="{cls}"><th scope="row">{esc(m["name"])}<small>{esc(m["maker"])}, {tier}</small></th>'
@@ -225,9 +229,194 @@ meta_description = (
     f"{ds['instances']} real bugs from open-source projects, with the limits stated up front."
 )
 favicon = (
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E"
-    "%3Crect width='22' height='22' rx='4' fill='%23E8EBF3'/%3E"
-    "%3Ccircle cx='11' cy='11' r='6' fill='%23F0287D' stroke='%23151A3D' stroke-width='2'/%3E%3C/svg%3E"
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E"
+    "%3Crect x='1' y='1' width='18' height='18' rx='3' fill='white' stroke='%230F1A2B' stroke-width='1.6'/%3E"
+    "%3Cpath d='M5 10.5l3.2 3.2L15 6.8' fill='none' stroke='%231F3FD6' stroke-width='2.2' "
+    "stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+)
+
+# ---------- recruiter-facing content: stack, build history, hard problems ----------
+# Facts below come from docs/ts-bench-task-board.md and docs/step7-real-model-run.md.
+LOC = "4,500"  # non-test Python under pipeline/, harness/, agent/, scripts/ (wc -l, Sep 2026)
+TESTS = 46  # `uv run pytest -q` result, Sep 2026
+
+STACK = [
+    (
+        "Language and packaging",
+        "Python 3.12, uv, hatchling",
+        "Core code, locked and reproducible environments.",
+    ),
+    (
+        "Data and schema",
+        "Pydantic v2, JSONL, HuggingFace datasets",
+        "Validated task schema and a versioned, immutable dataset that loads with the datasets library.",
+    ),
+    (
+        "Storage",
+        "PostgreSQL 16, psycopg 3",
+        "tasks, runs and results tables. Composite keys make replayed writes safe.",
+    ),
+    (
+        "Model access",
+        "LiteLLM, Ollama, OpenRouter, Anthropic API",
+        "One interface for local and hosted models, with cost and token logging.",
+    ),
+    (
+        "Targets under test",
+        "Node via nvm, pnpm, npm, yarn, vitest, jest, pytest, Maven, JUnit",
+        "What the language adapters drive inside each task's own repository.",
+    ),
+    (
+        "Isolation",
+        "Docker, warm package-cache volumes, git archive",
+        "Runs without host state. Task folders are built with no git history.",
+    ),
+    (
+        "Scale-out",
+        "Apache Kafka 3.8 (KRaft), kafka-python, Kubernetes (kind)",
+        "An idempotent job queue and a pool of worker pods.",
+    ),
+    (
+        "Task sources",
+        "GitHub GraphQL API, bare git mirrors",
+        "Mining merged pull requests and extracting exact diffs.",
+    ),
+    ("Agent experiment", "LangChain, LangGraph", "A tool-using second agent, in a separate project."),
+    (
+        "Quality",
+        "pytest, ruff, pre-commit, GitHub Actions",
+        f"{TESTS} passing tests. CI enforces lint and formatting on every push.",
+    ),
+    (
+        "This site",
+        "Static HTML, CSS, JavaScript, inline SVG, Cloudflare Pages",
+        "Generated from the results data by a standard-library Python script. No framework.",
+    ),
+]
+
+PHASES = [
+    (
+        "Foundation",
+        "T1, T2",
+        [
+            "A monorepo with uv, ruff, pre-commit and CI, and a Pydantic TaskInstance schema as the contract between every stage.",
+            "The LanguageAdapter interface and a TypeScript adapter, checked on three real repositories (zod, class-validator, trpc) with identical results across runs.",
+        ],
+    ),
+    (
+        "Tasks worth trusting",
+        "T3, T4, T11",
+        [
+            "The validator and its gold and empty gate, a GitHub GraphQL miner, and 24 validated tasks in the end.",
+            "Contamination dates for every task, and a repeat-run audit that re-checks the whole set (13 of 13 clean when last run).",
+        ],
+    ),
+    (
+        "Execution and scoring",
+        "T6, T7, T8, T9",
+        [
+            "An eval runner with anti-cheat test resets, a deliberately minimal reference agent, a LiteLLM gateway with cost tracking, and a hard split between model failures and infrastructure failures.",
+            "pass@k with bootstrap error bars, checked against hand calculations before it was trusted.",
+        ],
+    ),
+    (
+        "Reproducibility and breadth",
+        "T12, T13, T14",
+        [
+            "A Docker sandbox with warm package caches, measured 25 to 35 percent faster on a monorepo and 2.5 to 3 times faster on a single package.",
+            "Python and Java adapters that proved the language seam.",
+        ],
+    ),
+    (
+        "Storage and scale",
+        "T5, T15",
+        [
+            "A versioned dataset export and a Postgres schema that round-trips it exactly.",
+            "A Kafka and Kubernetes job queue, verified against a force-killed worker.",
+        ],
+    ),
+    (
+        "Real models, and this site",
+        "Step 7, T10",
+        [
+            "667 real attempts on local and paid models. Eight bugs surfaced, and were fixed, only once real and imperfect model output flowed through.",
+            "This site, generated from the results with its limits stated first.",
+        ],
+    ),
+]
+
+CASES = [
+    (
+        "Node version was recorded but never enforced",
+        "Nearly every trpc candidate was rejected with dozens of unrelated failing tests.",
+        "Tests ran under whatever Node the shell defaulted to (v24). The repository pinned 22, and the two disagreed about fetch internals.",
+        "The adapter resolves the exact Node version through nvm and puts it first on PATH. The six newest trpc candidates then validated on the first try.",
+    ),
+    (
+        "A passing gate can hide an untested safety path",
+        "The gold and empty gate passed, yet nothing had exercised the rule that restores test files an agent edits.",
+        "The human patch never touches test files by construction, so the restore step always ran on an empty list.",
+        "A direct test tampers with a real test file and checks it is restored.",
+    ),
+    (
+        "Caching the wrong thing in Docker",
+        "In a pnpm monorepo, vitest was missing, fell back to a global copy, and the harness reported a clean-looking but wrong result.",
+        "The first design cached node_modules by lockfile hash and skipped the install, so per-package node_modules were never created.",
+        "Always run the install and persist the package managers' own caches instead. Warm installs were 25 to 35 percent faster on a monorepo, 2.5 to 3 times on a single package.",
+    ),
+    (
+        "Compiled languages broke task mining",
+        "74 Java candidates from two repositories produced zero tasks.",
+        "The new tests call a method the fix adds, so they cannot compile before the fix. A dynamic language would simply fail that one test.",
+        "A compile failure now counts as failing before the fix, with test names read from the diff. A wrong guess can only miss a task, never approve a false one. Six Java tasks validated, and the work exposed a scoring bug that under-scored parameterized tests.",
+    ),
+    (
+        "Failures scored as infrastructure errors",
+        "A real model's broken Java or Python patch was recorded as infra_error, which is excluded from the score.",
+        "Every earlier check ran only the human patch, which always compiles. Real model output was the first thing to reach that path.",
+        "Typed exceptions for compile and collection failures (and pytest's own exit code 4), so they count against the model. Left alone, it would have quietly inflated Java scores.",
+    ),
+    (
+        "Environment bugs that looked like flakes",
+        "Bursts of identical infrastructure errors in the middle of a long run.",
+        "Three causes: Ollama restarted as the wrong user served zero models (230 attempts lost), nvm install hit the network on every call, and a global .npmrc with workspaces=true broke npm for every project.",
+        "A 15-minute watcher caught each burst. Bad rows were removed and the run resumed without rework. Reading the tools' source found the last two.",
+    ),
+    (
+        "Kafka on one broker never assigned work",
+        "Workers reported ready and never received a partition.",
+        "The offsets topic defaults to 3 replicas, which one broker can never satisfy, and the job topic had been created with a single partition, so two of three workers sat idle.",
+        "Set the replication factor to 1 and raised the topic to 6 partitions. Then verified concurrent workers and a force-killed pod: nothing lost, nothing duplicated.",
+    ),
+]
+
+stack_html = "\n        ".join(
+    f'<tr><th scope="row">{esc(a)}</th><td>{esc(b)}</td><td>{esc(c)}</td></tr>' for a, b, c in STACK
+)
+phases_html = "\n    ".join(
+    f'<li><h3>{esc(t)}<span class="when">{esc(w)}</span></h3>'
+    + "".join(f"<p>{esc(p)}</p>" for p in ps)
+    + "</li>"
+    for t, w, ps in PHASES
+)
+cases_html = "\n    ".join(
+    f'<article class="case"><h3>{esc(t)}</h3><dl><dt>Symptom</dt><dd>{esc(s)}</dd><dt>Cause</dt><dd>{esc(c)}</dd>'
+    f"<dt>Fix</dt><dd>{esc(f)}</dd></dl></article>"
+    for t, s, c, f in CASES
+)
+facts_html = "\n    ".join(
+    f"<div><dt>{esc(k)}</dt><dd>{esc(v)}<span>{esc(s)}</span></dd></div>"
+    for k, v, s in [
+        ("Task set", f"{ds['instances']} real bugs", f"{ds['repos']} repositories, version {ds['version']}"),
+        ("Languages", "TypeScript, Python, Java", "One adapter interface"),
+        (
+            "Real attempts",
+            str(totals["attempts"]),
+            f"{totals['models_with_data']} models, ${totals['cost_usd']:.2f} spent",
+        ),
+        ("Runs on", "Docker, Kafka, Kubernetes", "Postgres for results"),
+        ("Codebase", f"About {LOC} lines of Python", f"{TESTS} passing tests, CI on every push"),
+    ]
 )
 
 excluded_note = (
@@ -257,6 +446,20 @@ values = {
     "language_line": esc(language_line),
     "generated_at": esc(data["generated_at"]),
     "cost": f"{totals['cost_usd']:.2f}",
+    "models_with_data": str(totals["models_with_data"]),
+    "top_name": esc(top["name"]),
+    "top_attempts": str(top["attempts"]),
+    "facts": facts_html,
+    "loc": LOC,
+    "tests": str(TESTS),
+    "stack_rows": stack_html,
+    "phases": phases_html,
+    "cases": cases_html,
+    "diagram_architecture": diagrams.architecture(),
+    "diagram_validation": diagrams.validation(),
+    "diagram_attempt": diagrams.attempt(),
+    "diagram_adapters": diagrams.adapters(),
+    "diagram_scaleout": diagrams.scaleout(),
     "data_json": json.dumps(data, separators=(",", ":")).replace("</", "<\\/"),
 }
 

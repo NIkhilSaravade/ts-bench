@@ -32,7 +32,8 @@ cd leaderboard/site && python3 -m http.server 8765
 |---|---|
 | `src/template.html` | Page structure and copy. `{{placeholders}}` are filled by `build.py`. |
 | `src/style.css`, `src/app.js` | Styling and the interactive field of attempts. |
-| `build.py` | Fills the template, builds the table and task matrix, writes `site/`. |
+| `build.py` | Fills the template, builds the tables, tech stack, build log and task matrix, writes `site/`. Holds the hand-written stack, phase and "hard problems" content, each sourced from the task board. |
+| `diagrams.py` | The five architecture diagrams, drawn as inline SVG by code (system layers, task validation gate, one attempt, language adapter seam, Kafka/Kubernetes queue). Edit here to change a diagram. |
 | `data/results.json` | The exported real numbers (committed). |
 | `site/` | The built site. This is the folder to deploy. |
 
@@ -65,7 +66,7 @@ and want visitors to see it sooner, rename the files or shorten that cache line.
 
 ## Notes and known limits
 
-- Fonts (Bricolage Grotesque, Newsreader) load from Google Fonts. If that is blocked the page falls back
+- Fonts (Geist, Geist Mono, Newsreader) load from Google Fonts. If that is blocked the page falls back
   to system fonts and still works.
 - Screenshots during development were taken with headless Edge at desktop width and at a true 390 px
   phone width. The page fits a phone with no sideways scrolling. It has not been tested on real devices,
