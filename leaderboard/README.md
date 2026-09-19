@@ -1,77 +1,61 @@
 # Leaderboard site (T10)
 
-A static site: plain HTML, CSS and a little JavaScript. **No framework and no npm step**, so
-Cloudflare Pages can serve the `site/` folder as it is.
+A React 19 + Vite + Tailwind 4 site, written to match the design language of the sibling
+[`llm-serve`](https://github.com/NIkhilSaravade/LLM-serve) report: the same shell (fixed sidebar with
+scroll progress and a dark/light toggle), the same three fonts (Bricolage Grotesque, Instrument Sans,
+JetBrains Mono), the same motion library and the same interactive-diagram approach (click a component to
+explain it, trace one request through the map, replay a state machine). The palette is deliberately
+different (graphite-teal and aqua instead of ink-blue and lime) so the two read as siblings, not twins.
 
-Every number on the page comes from `data/results.json`, which is produced from the raw run files.
-Nothing is typed in by hand except the fixed harness budget (40 turns, 15 minutes) and one note about
-the separate LangGraph experiment; both are labelled with their source in `build.py`.
+**Every number on the page is generated** from `data/results.json`, which is exported from the raw run
+files. Nothing is typed in by hand except the fixed harness budget (40 turns, 15 minutes, from
+`docs/fairness_contract.md`).
 
-## Update the numbers and rebuild
-
-```bash
-# from the repo root, in Ubuntu/WSL
-python3 scripts/export_leaderboard_data.py   # raw results/*.jsonl -> leaderboard/data/results.json
-python3 leaderboard/build.py                 # data + src/ -> leaderboard/site/
-```
-
-`results/oss_leaderboard_run1.jsonl` is large and gitignored, so the export only works on a machine that
-has it. `data/results.json` (13 KB) is committed, so `build.py` works anywhere without it.
-
-## Preview locally
-
-```bash
-cd leaderboard/site && python3 -m http.server 8765
-# open http://localhost:8765  (also works from Windows browsers)
-# ?group=repo or ?group=result opens the squares grouped that way
-```
-
-## Files
+## Layout
 
 | Path | What it is |
 |---|---|
-| `src/template.html` | Page structure and copy. `{{placeholders}}` are filled by `build.py`. |
-| `src/style.css`, `src/app.js` | Styling and the interactive field of attempts. |
-| `build.py` | Fills the template, builds the tables, tech stack, build log and task matrix, writes `site/`. Holds the hand-written stack, phase and "hard problems" content, each sourced from the task board. |
-| `diagrams.py` | The five architecture diagrams, drawn as inline SVG by code (system layers, task validation gate, one attempt, language adapter seam, Kafka/Kubernetes queue). Edit here to change a diagram. |
-| `data/results.json` | The exported real numbers (committed). |
-| `site/` | The built site. This is the folder to deploy. |
+| `site-src/` | The source: `src/components`, `src/content`, `src/styles.css`, `public/`. |
+| `site/` | The **built** output. Committed, so Cloudflare Pages serves it with no build step. |
+| `data/results.json` | The exported real results (committed, 13 KB). |
+| `../scripts/export_leaderboard_data.py` | Raw `results/*.jsonl` to `data/results.json`. |
+
+Content lives in `site-src/src/content/`: `architecture.ts` (the system map), `seam.ts` (language
+adapters), `flows.ts` (task validation, scoring steps, job queue), `problems.ts` (the debugging log). Each
+claim there comes from `docs/ts-bench-task-board.md` or `docs/step7-real-model-run.md`.
+
+## Update the numbers, then rebuild
+
+```bash
+# from the repo root, in Ubuntu/WSL
+python3 scripts/export_leaderboard_data.py        # needs the (gitignored) raw results/*.jsonl
+cd leaderboard/site-src
+export npm_config_workspaces=false                 # this machine's global ~/.npmrc has workspaces=true
+npm ci                                             # first time only
+npm run build                                      # typechecks, then writes ../site
+git add ../site ../data                            # commit the built site
+```
+
+`npm run dev` starts a dev server with hot reload.
 
 ## Deploy to Cloudflare Pages
 
-Two ways. Neither has been done yet: nothing is published.
+The Pages project should have: framework preset **None**, build command **empty**, build output
+directory **`leaderboard/site`**. Every push to `main` then redeploys the committed `site/` folder.
+`site/_headers` sets a strict content-security policy (same-origin script, style and font only, no
+third-party requests; fonts are bundled, not loaded from Google), so no inline script exists.
 
-**A. Connect the GitHub repo (recommended; redeploys on every push)**
-
-1. Cloudflare dashboard, Workers & Pages, Create, Pages, Connect to Git, pick `NIkhilSaravade/ts-bench`.
-2. Framework preset: **None**. Build command: leave **empty**. Build output directory: `leaderboard/site`.
-3. Save and deploy. You get a `*.pages.dev` address.
-
-**B. Upload directly**
-
-```bash
-npx wrangler pages deploy leaderboard/site --project-name ts-bench
-```
-
-**Then attach your domain**
-
-1. In the Pages project: Custom domains, Set up a custom domain, enter it (for example `bench.yourdomain.com`
-   or the bare domain).
-2. If the domain's DNS is already on Cloudflare, it adds the record for you. If not, add the `CNAME` it
-   shows at your DNS provider (or move the domain's nameservers to Cloudflare).
-3. Wait for the certificate to issue (usually minutes), then open the site over `https`.
-
-`site/_headers` sets basic security headers and a one-hour cache on `/assets/*`. If you change CSS or JS
-and want visitors to see it sooner, rename the files or shorten that cache line.
+For a custom domain, add it under the Pages project's Custom domains. `llm-serve` lives on a subdomain of
+the same domain, so a subdomain such as `ts-bench.<your-domain>` keeps the two consistent. If you use a
+different address, change `VITE_SITE_URL` in `site-src/.env.production` and rebuild.
 
 ## Notes and known limits
 
-- Fonts (Geist, Geist Mono, Newsreader) load from Google Fonts. If that is blocked the page falls back
-  to system fonts and still works.
-- Screenshots during development were taken with headless Edge at desktop width and at a true 390 px
-  phone width. The page fits a phone with no sideways scrolling. It has not been tested on real devices,
-  Safari, or Firefox.
-- The tooltip on the squares works with a mouse or a tap. Keyboard users get the same information from
-  the table and the task matrix, which are real HTML tables.
-- Motion respects `prefers-reduced-motion`: with it on, squares appear in place and nothing animates.
-- There is no social-share image yet.
+- Verified in headless Edge (desktop 1440 px, a 500 px phone layout, dark and light themes) under the real
+  security headers. Not tested on real phones, Safari or Firefox.
+- Motion respects `prefers-reduced-motion`. The attempt field has a fallback timer so it can never stay
+  hidden if the scroll-visibility signal does not arrive.
+- No social-share (Open Graph) image yet. `llm-serve` generates one with Playwright; that step was left out
+  to keep this build's dependencies small.
+- Keyboard users get the diagram content as focusable nodes with the same detail panel, and every figure
+  also exists in the tables.

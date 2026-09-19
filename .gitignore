@@ -16,3 +16,6 @@ scratch/
 results/oss_leaderboard_run1.jsonl
 results/t9_run1.jsonl
 results/t9_run2.jsonl
+
+# leaderboard site: dependencies are reinstalled with npm ci; the built site/ IS committed
+leaderboard/site-src/node_modules/
