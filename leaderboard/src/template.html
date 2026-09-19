@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TS-Bench: can AI agents fix real bugs?</title>
+<meta name="description" content="{{meta_description}}">
+<meta name="theme-color" content="#E8EBF3">
+<meta property="og:type" content="website">
+<meta property="og:title" content="TS-Bench: can AI agents fix real bugs?">
+<meta property="og:description" content="{{meta_description}}">
+<link rel="icon" href="{{favicon}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..500&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip" href="#results">Skip to the results</a>
+
+<header class="wrap bar">
+  <a class="mark" href="#top" aria-label="TS-Bench home">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" fill="none"/><g fill="#B7BED6"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="8" y="1" width="6" height="6" rx="1"/><rect x="15" y="1" width="6" height="6" rx="1"/><rect x="1" y="8" width="6" height="6" rx="1"/><rect x="15" y="8" width="6" height="6" rx="1"/><rect x="1" y="15" width="6" height="6" rx="1"/><rect x="8" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/></g><circle cx="11" cy="11" r="3.6" fill="#F0287D" stroke="#151A3D" stroke-width="1.6"/></svg>
+    TS-Bench
+  </a>
+  <nav aria-label="Sections">
+    <a href="#limits">Limits</a>
+    <a href="#results">Results</a>
+    <a href="#tasks">Tasks</a>
+    <a href="#method">Method</a>
+    <a href="https://github.com/NIkhilSaravade/ts-bench">Code</a>
+  </nav>
+</header>
+
+<main id="top">
+<div class="wrap hero">
+  <h1>Real bugs, real repos. {{resolved}}&nbsp;fixes in {{attempts}}&nbsp;attempts.</h1>
+  <p class="hero__lede">TS-Bench hands AI coding agents {{instances}} bug reports from open-source projects, then checks whether the patch <strong>really fixes the bug and breaks nothing else</strong>. Each square below is one attempt.</p>
+  <p class="hero__warn">Read <a href="#limits">what these numbers can't tell you</a> before you quote any of them.</p>
+
+  <div class="controls">
+    <span id="group-label">Group the attempts by</span>
+    <div class="seg" role="group" aria-labelledby="group-label">
+      <button type="button" data-group="model" aria-pressed="true">Model</button>
+      <button type="button" data-group="repo" aria-pressed="false">Repository</button>
+      <button type="button" data-group="result" aria-pressed="false">Result</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="stage" id="stage" role="img" aria-label="{{stage_alt}}"></div>
+    <ul class="legend" aria-label="Legend">
+      <li><i class="cell c1"></i>Fixed the bug</li>
+      <li><i class="cell c0"></i>Did not fix it</li>
+      <li><i class="cell c2"></i>Tests timed out</li>
+      <li><i class="cell c3"></i>Patch would not apply</li>
+    </ul>
+  </div>
+</div>
+
+<section class="limits" id="limits" aria-labelledby="limits-h">
+  <div class="wrap">
+    <h2 id="limits-h">What these numbers can't tell you</h2>
+    <p class="intro">This is an early, small run. It is honest about what it measured, and these are the reasons not to over-read it.</p>
+    <div class="limits__grid">
+      {{limits}}
+    </div>
+    <div class="todo">
+      <h3>Not done yet</h3>
+      <ul>
+        <li>The task set is not yet published on HuggingFace; it lives in the repository as JSONL.</li>
+        <li>No stranger has yet reproduced a number from this page using only the write-up. That check is still open.</li>
+        <li>The repeat-run audit that catches flaky or drifting tasks last covered 13 of the {{instances}} tasks. It has not been re-run on all of them.</li>
+        <li>A patch that breaks TypeScript syntax so badly that no test can start is not yet scored as a plain failure. It has not happened in a real run, but the gap exists.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="results" class="wrap" aria-labelledby="results-h">
+  <h2 id="results-h">Results by model</h2>
+  <p class="intro">Models with zero fixes are tied, so we don't rank them. The bar shows the range the real fix rate probably sits in, given how few attempts there are. Wide bar means low confidence.</p>
+  <div class="table-wrap">
+    <table>
+      <caption class="sr" style="position:absolute;left:-999px">Bugs fixed by each model</caption>
+      <thead>
+        <tr>
+          <th scope="col">Model</th>
+          <th scope="col">Bugs fixed</th>
+          <th scope="col">Likely range (95%)</th>
+          <th scope="col">Cost</th>
+          <th scope="col">Tasks covered</th>
+          <th scope="col">Run</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{rows}}
+      </tbody>
+    </table>
+  </div>
+  <div class="axis" aria-hidden="true"><span>0%</span><span>30%</span><span>60% of attempts fixed</span></div>
+  <p class="intro" style="margin-top:22px">{{cost_note}}</p>
+</section>
+
+<section id="tasks" class="wrap" aria-labelledby="tasks-h">
+  <h2 id="tasks-h">Every task, model by model</h2>
+  <p class="intro">Each cell is fixes over attempts. The date is when the real fix was merged into the project. The older it is, the more likely a model has seen it during training.</p>
+  <div class="table-wrap">
+    <table class="matrix">
+      <thead>
+        <tr><th scope="col">Task</th><th scope="col">Real fix merged</th>{{matrix_head}}</tr>
+      </thead>
+      <tbody>
+        {{matrix}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="method" class="wrap" aria-labelledby="method-h">
+  <h2 id="method-h">How a bug becomes a score</h2>
+  <p class="intro">The method matters more than the leaderboard. Here is what each score rests on.</p>
+  <ol class="steps">
+    <li><h3>Find a real fix</h3><p>Take a merged pull request that closed a GitHub issue and changed a test. The issue text becomes the bug report; the fix and its tests become the answer key.</p></li>
+    <li><h3>Prove it is a fair task</h3><p>Before the fix, the new tests must fail. After it, they must pass. Each task is run three times to throw out flaky tests. A task that fails either check is rejected and logged.</p></li>
+    <li><h3>Let the agent try</h3><p>The agent gets the issue text and the code as it was before the fix, with no git history. Same instructions, {{turns}} turns and {{minutes}} minutes for every model. Any test file it edits is put back.</p></li>
+    <li><h3>Score the patch</h3><p>The hidden tests are added and run. The bug counts as fixed only if every target test passes and no test that used to pass now fails.</p></li>
+  </ol>
+
+  <div class="two">
+    <div>
+      <h3>How each attempt is counted</h3>
+      <dl class="defs">
+        <dt>Fixed</dt><dd>All target tests pass and nothing else broke.</dd>
+        <dt>Not fixed</dt><dd>The patch ran but a target test still fails, or something else broke.</dd>
+        <dt>Timed out</dt><dd>The tests didn't finish in time. Counts as not fixed.</dd>
+        <dt>Patch did not apply</dt><dd>The diff was malformed. Counts as not fixed.</dd>
+        <dt>Excluded</dt><dd>Our own failure, such as a billing error or a broken install. It is never held against a model. {{excluded_note}}</dd>
+      </dl>
+    </div>
+    <div>
+      <h3>Why zero isn't a bug in the scoring</h3>
+      <div class="prose">
+        <p>A run of zeros looks suspicious, so we checked. The scoring accepts the real human fix on every task and rejects an empty patch on every task. We also traced one task where a local model scored a fix once in a timing test, then failed the same task ten times. The scoring was correct: that task checks two near-identical test variants, the human fix passes both, and a partial fix can pass only one. The one-off pass was most likely run-to-run variation in local inference. Small local models scoring near zero on hard, real bugs is a plausible result, not a broken pipeline.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div>
+      <h3>We also tried a smarter agent</h3>
+      <div class="prose">
+        <p>The plain agent types one shell command per turn. We built a second agent with real tools (read, search, edit, run the tests) and language-specific instructions, using LangGraph. On 5 Python tasks with Qwen3 14B it fixed none, {{lg_note}}</p>
+        <p>That is one model on five tasks, so it is a note and not a finding. The work is in a separate project, so nothing here changes the main benchmark.</p>
+      </div>
+    </div>
+    <div>
+      <h3>Check our work</h3>
+      <div class="prose"><p>The code, tasks and results are open. You need Docker, <code>uv</code>, and either Ollama or an API key. Nobody outside this project has run these yet.</p></div>
+      <pre><span class="c"># the gold patch must fix every task, an empty patch none</span>
+uv run python scripts/run_gate.py
+
+<span class="c"># run a model on every task, 10 tries each (resumable)</span>
+uv run python scripts/run_driver.py \
+  --models ollama_chat/qwen3:14b \
+  --instances all --repeats 10 \
+  --out results/my_run.jsonl
+
+<span class="c"># fix rate and pass@k with error bars</span>
+uv run python scripts/compute_stats.py \
+  --in results/my_run.jsonl --k 5</pre>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <p class="big">TS-Bench</p>
+      <p>Task set {{dataset_version}}: {{instances}} tasks, {{repos}} repositories.</p>
+      <p><small>{{language_line}}</small></p>
+    </div>
+    <div>
+      <p>Numbers generated {{generated_at}} from the raw run files.</p>
+      <p><small>{{attempts}} attempts, {{resolved}} fixed, ${{cost}} spent in total.</small></p>
+    </div>
+    <div>
+      <p><a href="https://github.com/NIkhilSaravade/ts-bench">Source code and data on GitHub</a></p>
+      <p><a href="https://github.com/NIkhilSaravade/ts-bench/blob/main/docs/fairness_contract.md">The fairness contract</a></p>
+    </div>
+  </div>
+</footer>
+
+<div class="tip" id="tip" role="tooltip"></div>
+<script type="application/json" id="data">{{data_json}}</script>
+<script src="assets/app.js" defer></script>
+</body>
+</html>
